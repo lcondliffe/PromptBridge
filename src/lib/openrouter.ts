@@ -23,8 +23,19 @@ export async function fetchModels(apiKey: string): Promise<ModelInfo[]> {
   }
   const data = await res.json();
   // OpenRouter returns { data: [ { id, name, ... } ] }
-  const list = Array.isArray(data?.data) ? data.data : [];
-  return list.map((m: any) => ({ id: m.id, name: m.name, context_length: m.context_length }));
+  const listRaw: unknown[] = Array.isArray(data?.data) ? data.data : [];
+  const parsed: ModelInfo[] = [];
+  for (const raw of listRaw) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const o = raw as { id?: unknown; name?: unknown; context_length?: unknown };
+    const id = typeof o.id === 'string' ? o.id : o.id != null ? String(o.id) : '';
+    if (!id) continue;
+    const mi: ModelInfo = { id };
+    if (typeof o.name === 'string') mi.name = o.name;
+    if (typeof o.context_length === 'number') mi.context_length = o.context_length;
+    parsed.push(mi);
+  }
+  return parsed;
 }
 
 export function streamChat(
@@ -33,7 +44,7 @@ export function streamChat(
 ): StreamHandle {
   const abortController = new AbortController();
 
-  const body: any = {
+  const body: { model: string; messages: ChatMessage[]; temperature: number; stream: boolean; max_tokens?: number } = {
     model,
     messages,
     temperature,
@@ -86,7 +97,7 @@ export function streamChat(
                 full += contentChunk;
                 onToken?.(contentChunk);
               }
-            } catch (e) {
+            } catch {
               // Ignore malformed lines
             }
           }
@@ -94,9 +105,10 @@ export function streamChat(
       }
       // End of stream without [DONE]
       onDone?.(full);
-    } catch (err: any) {
+    } catch (err) {
       if (abortController.signal.aborted) return;
-      onError?.(err instanceof Error ? err : new Error(String(err)));
+      const error = err instanceof Error ? err : new Error(String(err));
+      onError?.(error);
     }
   })();
 

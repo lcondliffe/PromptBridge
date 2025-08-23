@@ -13,7 +13,7 @@ export interface ModelInfo {
 
 export interface StreamCallbacks {
   onToken?: (chunk: string) => void;
-  onDone?: (full: string, usage?: any) => void;
+  onDone?: (full: string, usage?: unknown) => void;
   onError?: (err: Error) => void;
 }
 

@@ -91,14 +91,14 @@ export default function Home() {
           const pick = preferred.find((p) => ids.includes(p)) || ids[0] || "";
           if (pick) setSummarizerModel(pick);
         }
-      } catch (e: any) {
-        console.error(e);
+      } catch (err) {
+        console.error(err);
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [apiKey]);
+  }, [apiKey, selectedModels.length, setSelectedModels, summarizerModel, setSummarizerModel, popularDefaults]);
 
   const onSend = async (prompt: string) => {
     if (!apiKey) {
@@ -151,11 +151,11 @@ export default function Home() {
 
   const stopAll = () => {
     Object.values(controllersRef.current).forEach((c) => c?.abort());
-    controllersRef.current = {} as any;
+    controllersRef.current = {} as Record<string, AbortController>;
     setPanes((p) =>
       Object.fromEntries(
         Object.entries(p).map(([k, v]) => [k, { ...v, running: false }])
-      )
+      ) as Record<string, Pane>
     );
   };
 
