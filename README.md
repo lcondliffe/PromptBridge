@@ -1,24 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Multi LLM Researcher
+
+A clean web UI to send a single prompt to multiple LLMs (via OpenRouter), view each model’s response in its own pane, and then use a nominated model to summarize for consensus, contradictions, caveats, and recommendations.
+
+## Features
+
+- Select multiple models and one summarizer model (fetched from OpenRouter)
+- Paste your OpenRouter API key (stored locally in your browser)
+- Send a prompt once; responses stream into separate panes
+- Generate a structured summary from a nominated model
+- Light/dark-friendly Tailwind UI
 
 ## Getting Started
+
+Prerequisites:
+- Node 20+ (recommended via .nvmrc)
+- pnpm (Corepack-enabled)
 
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+In the UI:
+- Click “Set API Key” and paste your OpenRouter API key (stored in localStorage)
+- Choose one or more models, and a summarizer model
+- Type a prompt and press Enter or click Send
+- Optionally click “Summarize” to synthesize consensus and contradictions
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Security
+- Your API key is stored in your browser’s localStorage only; no backend is used.
+- The app sends requests directly to OpenRouter.
 
 ## Learn More
 
