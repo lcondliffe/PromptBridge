@@ -573,13 +573,13 @@ export default function Home() {
                 }}
               />
               <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] h-fit"
+                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] w-28 h-10 shrink-0"
                 type="submit"
               >
                 <Send className="size-4" /> Send
               </button>
               <button
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50 h-fit"
+                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50 w-28 h-10 shrink-0"
                 type="button"
                 onClick={stopAll}
                 disabled={Object.values(panes).every((p) => !p.running)}
