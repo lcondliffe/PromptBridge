@@ -58,6 +58,18 @@ export default function Home() {
     1024
   );
 
+  // Advanced sampling UI state
+  const [showAdvanced, setShowAdvanced] = useLocalStorage<boolean>("show_advanced", false);
+  const [topP, setTopP] = useLocalStorage<number | undefined>("top_p", undefined);
+  const [topK, setTopK] = useLocalStorage<number | undefined>("top_k", undefined);
+  const [freqPenalty, setFreqPenalty] = useLocalStorage<number | undefined>("frequency_penalty", undefined);
+  const [presencePenalty, setPresencePenalty] = useLocalStorage<number | undefined>("presence_penalty", undefined);
+  const [repetitionPenalty, setRepetitionPenalty] = useLocalStorage<number | undefined>("repetition_penalty", undefined);
+  const [minP, setMinP] = useLocalStorage<number | undefined>("min_p", undefined);
+  const [topA, setTopA] = useLocalStorage<number | undefined>("top_a", undefined);
+  const [seed, setSeed] = useLocalStorage<number | undefined>("seed", undefined);
+  const [stopStr, setStopStr] = useLocalStorage<string>("stop_str", "");
+
   // Prompt options
   const [limitWordsEnabled, setLimitWordsEnabled] = useLocalStorage<boolean>(
     "limit_words_enabled",
@@ -174,6 +186,12 @@ export default function Home() {
       { role: "user", content: finalPrompt },
     ];
 
+    // Parse stop strings into array
+    const stop = stopStr
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
     for (const model of selectedModels) {
       const handle = streamChat(
         {
@@ -182,6 +200,15 @@ export default function Home() {
           messages: baseMessages,
           temperature,
           maxTokens,
+          top_p: topP,
+          top_k: topK,
+          frequency_penalty: freqPenalty,
+          presence_penalty: presencePenalty,
+          repetition_penalty: repetitionPenalty,
+          min_p: minP,
+          top_a: topA,
+          seed,
+          stop,
         },
         {
           onToken: (chunk) =>
@@ -287,6 +314,24 @@ Be concise but comprehensive.`;
 
   const filteredCount = useMemo(() => filteredSortedModels.length, [filteredSortedModels]);
 
+  // Helpers to safely parse numeric inputs
+  function safeNum(v: string, min?: number, max?: number): number | undefined {
+    if (v === "") return undefined;
+    const n = Number(v);
+    if (Number.isNaN(n)) return undefined;
+    if (typeof min === "number" && n < min) return min;
+    if (typeof max === "number" && n > max) return max;
+    return n;
+  }
+  function safeInt(v: string, min?: number, max?: number): number | undefined {
+    if (v === "") return undefined;
+    const n = Math.floor(Number(v));
+    if (Number.isNaN(n)) return undefined;
+    if (typeof min === "number" && n < min) return min;
+    if (typeof max === "number" && n > max) return max;
+    return n;
+  }
+
   return (
     <div className="relative min-h-screen text-zinc-100">
       {/* Background gradient and subtle grid overlay */}
@@ -340,7 +385,7 @@ Be concise but comprehensive.`;
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
-              <div className="flex items-center gap-2 text-xs opacity-80">
+              <div className="flex items-center gap-2 text-xs opacity-80" title="Controls randomness/creativity. Lower = deterministic, higher = diverse.">
                 <label>Temp</label>
                 <input
                   type="range"
@@ -576,6 +621,57 @@ Be concise but comprehensive.`;
                 />
                 <span className="text-sm opacity-80">words</span>
               </div>
+            </div>
+
+            {/* Advanced prompt toggle & options (moved here) */}
+            <div className="mt-3">
+              <button
+                className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                onClick={() => setShowAdvanced((v) => !v)}
+                aria-expanded={showAdvanced}
+              >
+                {showAdvanced ? "Hide advanced" : "Advanced prompt"}
+              </button>
+              {showAdvanced && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="flex items-center gap-2 text-xs" title="Nucleus sampling. Consider only top tokens whose cumulative probability ≤ P.">
+                    <span className="w-28 opacity-80">Top P</span>
+                    <input type="number" min={0} max={1} step={0.01} value={topP ?? ''} onChange={(e)=> setTopP(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Top-K sampling. Limit choices to the K most likely tokens (0 disables).">
+                    <span className="w-28 opacity-80">Top K</span>
+                    <input type="number" min={0} step={1} value={topK ?? ''} onChange={(e)=> setTopK(safeInt(e.target.value, 0))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Discourage frequent tokens based on occurrence count. Negative encourages reuse.">
+                    <span className="w-28 opacity-80">Freq Penalty</span>
+                    <input type="number" min={-2} max={2} step={0.1} value={freqPenalty ?? ''} onChange={(e)=> setFreqPenalty(safeNum(e.target.value, -2, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Discourage repetition regardless of count. Negative encourages reuse.">
+                    <span className="w-28 opacity-80">Presence Penalty</span>
+                    <input type="number" min={-2} max={2} step={0.1} value={presencePenalty ?? ''} onChange={(e)=> setPresencePenalty(safeNum(e.target.value, -2, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Reduce repetition by penalizing more probable repeated tokens.">
+                    <span className="w-28 opacity-80">Repetition Pen.</span>
+                    <input type="number" min={0} max={2} step={0.1} value={repetitionPenalty ?? ''} onChange={(e)=> setRepetitionPenalty(safeNum(e.target.value, 0, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Minimum probability relative to most likely token.">
+                    <span className="w-28 opacity-80">Min P</span>
+                    <input type="number" min={0} max={1} step={0.01} value={minP ?? ''} onChange={(e)=> setMinP(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Consider tokens with sufficiently high probabilities relative to the best.">
+                    <span className="w-28 opacity-80">Top A</span>
+                    <input type="number" min={0} max={1} step={0.01} value={topA ?? ''} onChange={(e)=> setTopA(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Use the same seed to make outputs repeatable (determinism not guaranteed).">
+                    <span className="w-28 opacity-80">Seed</span>
+                    <input type="number" step={1} value={seed ?? ''} onChange={(e)=> setSeed(safeInt(e.target.value))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs" title="Stop when any of these strings are generated.">
+                    <span className="w-28 opacity-80">Stop</span>
+                    <input type="text" placeholder="e.g. ###,END" value={stopStr} onChange={(e)=> setStopStr(e.target.value)} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         </section>

@@ -23,6 +23,20 @@ export interface ChatParams {
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  // Advanced sampling parameters (all optional)
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  repetition_penalty?: number;
+  min_p?: number;
+  top_a?: number;
+  seed?: number;
+  stop?: string[];
+  logprobs?: boolean;
+  top_logprobs?: number;
+  response_format?: { type: string; [k: string]: unknown };
+  structured_outputs?: boolean;
 }
 
 export interface StreamHandle {

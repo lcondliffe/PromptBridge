@@ -39,18 +39,50 @@ export async function fetchModels(apiKey: string): Promise<ModelInfo[]> {
 }
 
 export function streamChat(
-  { apiKey, model, messages, temperature = 0.7, maxTokens }: ChatParams,
+  {
+    apiKey,
+    model,
+    messages,
+    temperature = 0.7,
+    maxTokens,
+    top_p,
+    top_k,
+    frequency_penalty,
+    presence_penalty,
+    repetition_penalty,
+    min_p,
+    top_a,
+    seed,
+    stop,
+    logprobs,
+    top_logprobs,
+    response_format,
+    structured_outputs,
+  }: ChatParams,
   { onToken, onDone, onError }: StreamCallbacks = {}
 ): StreamHandle {
   const abortController = new AbortController();
 
-  const body: { model: string; messages: ChatMessage[]; temperature: number; stream: boolean; max_tokens?: number } = {
+  const body: any = {
     model,
     messages,
     temperature,
     stream: true,
   };
   if (typeof maxTokens === 'number') body.max_tokens = maxTokens;
+  if (typeof top_p === 'number') body.top_p = top_p;
+  if (typeof top_k === 'number') body.top_k = top_k;
+  if (typeof frequency_penalty === 'number') body.frequency_penalty = frequency_penalty;
+  if (typeof presence_penalty === 'number') body.presence_penalty = presence_penalty;
+  if (typeof repetition_penalty === 'number') body.repetition_penalty = repetition_penalty;
+  if (typeof min_p === 'number') body.min_p = min_p;
+  if (typeof top_a === 'number') body.top_a = top_a;
+  if (typeof seed === 'number') body.seed = seed;
+  if (Array.isArray(stop) && stop.length > 0) body.stop = stop;
+  if (typeof logprobs === 'boolean') body.logprobs = logprobs;
+  if (typeof top_logprobs === 'number') body.top_logprobs = top_logprobs;
+  if (response_format) body.response_format = response_format;
+  if (typeof structured_outputs === 'boolean') body.structured_outputs = structured_outputs;
 
   const promise = (async () => {
     try {
