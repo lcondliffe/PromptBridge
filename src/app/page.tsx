@@ -268,7 +268,7 @@ Be concise but comprehensive.`;
       <div className="relative z-10 px-4 sm:px-6 md:px-8">
         {/* Hero header */}
         <section className="py-6 sm:py-8">
-          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_-24px_rgba(0,0,0,0.6)] p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_-24px_rgba(0,0,0,0.6)] p-4 sm:p-6">
             <div className="flex items-center gap-4">
               <div className="shrink-0 rounded-xl overflow-hidden border border-white/10 bg-white/10">
                 <Image src="/logo.webp" width={48} height={48} alt="PromptBridge logo" priority />
@@ -278,17 +278,18 @@ Be concise but comprehensive.`;
                 <p className="text-sm opacity-80">Prompt multiple models and synthesize a consensus.</p>
               </div>
             </div>
-            <div className="relative">
+            <div className="w-full sm:w-auto">
               <button
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98]"
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium leading-5 whitespace-nowrap bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98]"
                 onClick={() => setShowKey((v) => !v)}
                 aria-haspopup="dialog"
                 aria-expanded={showKey}
+                aria-controls="api-key-panel"
               >
                 <Key className="size-4" /> {apiKey ? "Update API Key" : "Set API Key"}
               </button>
               {showKey && (
-                <div className="absolute right-0 mt-2 w-[320px] rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg p-3">
+                <div id="api-key-panel" className="mt-3 w-full sm:w-[360px] rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg p-3">
                   <label className="block text-xs opacity-80 mb-1">OpenRouter API Key</label>
                   <div className="flex items-center gap-2">
                     <input
@@ -296,7 +297,7 @@ Be concise but comprehensive.`;
                       placeholder="sk-or-..."
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                      className="flex-1 px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
                     />
                     <span className="text-[10px] opacity-70">Stored locally</span>
                   </div>
