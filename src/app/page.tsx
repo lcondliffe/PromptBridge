@@ -373,7 +373,7 @@ export default function Home() {
           <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="shrink-0 rounded-xl overflow-hidden border border-white/10 bg-white/10">
-                <Image src="/logo.webp" width={48} height={48} alt="PromptBridge logo" priority />
+                <Image src="/logo.svg" width={48} height={48} alt="PromptBridge logo" priority />
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">PromptBridge</h1>

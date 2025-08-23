@@ -42,8 +42,8 @@ ENV PORT=3000
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# If you add public/ assets in future, uncomment the next line
-# COPY --from=builder /app/public ./public
+# Static assets
+COPY --from=builder /app/public ./public
 
 # Use the non-root node user provided by the base image
 USER node
