@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatParams, ModelInfo, StreamCallbacks, StreamHandle } from './types';
+import { log } from './logger';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -58,6 +59,8 @@ export function streamChat(
     top_logprobs,
     response_format,
     structured_outputs,
+    debug,
+    traceId,
   }: ChatParams,
   { onToken, onDone, onError }: StreamCallbacks = {}
 ): StreamHandle {
@@ -86,12 +89,30 @@ export function streamChat(
 
   const promise = (async () => {
     try {
+      if (debug) {
+        const preview = Array.isArray(messages)
+          ? messages.map((m) => ({ role: m.role, len: (m.content || '').length })).slice(-3)
+          : [];
+        const sanitized: any = { ...body, messages_preview: preview };
+        delete sanitized.messages;
+        log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions` });
+      }
+
       const res = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: defaultHeaders(apiKey),
         body: JSON.stringify(body),
         signal: abortController.signal,
       });
+      if (debug) {
+        const headerKeys = ['x-request-id','openrouter-request-id','openrouter-model','openrouter-provider','content-type'];
+        const headers: Record<string, string> = {};
+        headerKeys.forEach((k) => {
+          const v = (res.headers.get(k) || '') as string;
+          if (v) headers[k] = v;
+        });
+        log('info','chat','response',{ traceId, status: res.status, statusText: res.statusText, headers });
+      }
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => '');
         throw new Error(`Chat error: ${res.status} ${res.statusText} ${text}`);
@@ -100,6 +121,8 @@ export function streamChat(
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
       let full = '';
+      const startedAt = Date.now();
+      let firstTokenLogged = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -128,6 +151,10 @@ export function streamChat(
               if (contentChunk) {
                 full += contentChunk;
                 onToken?.(contentChunk);
+                if (debug && !firstTokenLogged) {
+                  firstTokenLogged = true;
+                  log('info','chat','first_token',{ traceId, ms: Date.now()-startedAt });
+                }
               }
             } catch {
               // Ignore malformed lines
@@ -137,9 +164,16 @@ export function streamChat(
       }
       // End of stream without [DONE]
       onDone?.(full);
+      if (debug) {
+        log('info','chat','done',{ traceId, durationMs: Date.now()-startedAt, chars: full.length });
+      }
     } catch (err) {
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted) {
+        if (debug) log('warn','chat','aborted',{ traceId });
+        return;
+      }
       const error = err instanceof Error ? err : new Error(String(err));
+      if (debug) log('error','chat','error',{ traceId, message: error.message });
       onError?.(error);
     }
   })();

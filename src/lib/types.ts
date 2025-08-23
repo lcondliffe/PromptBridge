@@ -37,6 +37,9 @@ export interface ChatParams {
   top_logprobs?: number;
   response_format?: { type: string; [k: string]: unknown };
   structured_outputs?: boolean;
+  // Debugging / logging
+  debug?: boolean;
+  traceId?: string;
 }
 
 export interface StreamHandle {

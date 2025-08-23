@@ -141,42 +141,73 @@ export default function Home() {
     "mistralai/mistral-large-2",
   ];
 
-  // Fetch models on key available
+  // Cache & fetch models (once per apiKey), with localStorage TTL
+  const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
+  const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
+  const lastModelsApiKeyRef = useRef<string | null>(null);
+
+  function maybeInitSelections(list: ModelInfo[]) {
+    try {
+      const storedSel = window.localStorage.getItem("selected_models");
+      const storedSumm = window.localStorage.getItem("summarizer_model");
+      const ids = list.map((m) => m.id);
+      if (!storedSel) {
+        const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
+        if (picks.length > 0) setSelectedModels(picks);
+      }
+      if (!storedSumm) {
+        const preferred = ["anthropic/claude-3.5-sonnet", "openai/gpt-4o-mini"];
+        const pick = preferred.find((p) => ids.includes(p)) || ids[0] || "";
+        if (pick) setSummarizerModel(pick);
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     if (!apiKey) return;
+    // Avoid duplicate fetches for the same apiKey (StrictMode etc.)
+    if (lastModelsApiKeyRef.current === apiKey && models.length > 0) return;
+
     let mounted = true;
+
+    // Try cache first
+    try {
+      const raw = window.localStorage.getItem(MODELS_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { ts?: number; data?: ModelInfo[] };
+        if (parsed?.data && Array.isArray(parsed.data) && typeof parsed.ts === "number") {
+          if (Date.now() - parsed.ts < MODELS_TTL_MS) {
+            setModels(parsed.data);
+            maybeInitSelections(parsed.data);
+            lastModelsApiKeyRef.current = apiKey;
+            return; // fresh cache; skip network
+          }
+        }
+      }
+    } catch {}
+
     (async () => {
       try {
         const list = await fetchModels(apiKey);
         if (!mounted) return;
         setModels(list);
-        // initialize defaults only on first run (when no prior selection exists in storage)
-        if (selectedModels.length === 0) {
-          let stored: string | null = null;
-          try { stored = window.localStorage.getItem("selected_models"); } catch {}
-          if (stored === null) {
-            const ids = list.map((m) => m.id);
-            const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
-            if (picks.length > 0) setSelectedModels(picks);
-          }
-        }
-        if (!summarizerModel) {
-          const preferred = [
-            "anthropic/claude-3.5-sonnet",
-            "openai/gpt-4o-mini",
-          ];
-          const ids = list.map((m) => m.id);
-          const pick = preferred.find((p) => ids.includes(p)) || ids[0] || "";
-          if (pick) setSummarizerModel(pick);
-        }
+        try {
+          window.localStorage.setItem(
+            MODELS_CACHE_KEY,
+            JSON.stringify({ ts: Date.now(), data: list })
+          );
+        } catch {}
+        maybeInitSelections(list);
+        lastModelsApiKeyRef.current = apiKey;
       } catch (err) {
         console.error(err);
       }
     })();
+
     return () => {
       mounted = false;
     };
-  }, [apiKey, selectedModels.length, setSelectedModels, summarizerModel, setSummarizerModel, popularDefaults]);
+  }, [apiKey]);
 
   const [uiError, setUiError] = useState<string>("");
 
@@ -221,6 +252,7 @@ export default function Home() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     for (const model of selectedModels) {
       const handle = streamChat(
         {
@@ -238,6 +270,8 @@ export default function Home() {
           top_a: topA,
           seed,
           stop,
+          debug: true,
+          traceId,
         },
         {
           onToken: (chunk) =>
