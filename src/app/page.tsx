@@ -214,7 +214,7 @@ Be concise but comprehensive.`;
     <div className="min-h-screen p-4 sm:p-6 md:p-8">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Multi LLM Researcher</h1>
+<h1 className="text-2xl font-semibold">PromptBridge</h1>
           <p className="text-sm opacity-80">Prompt multiple models and synthesize a consensus.</p>
         </div>
         <div className="flex flex-wrap gap-3 items-center">

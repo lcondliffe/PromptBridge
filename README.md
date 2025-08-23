@@ -1,4 +1,4 @@
-# Multi LLM Researcher
+# PromptBridge
 
 A clean web UI to send a single prompt to multiple LLMs (via OpenRouter), view each model’s response in its own pane, and then use a nominated model to summarize for consensus, contradictions, caveats, and recommendations.
 

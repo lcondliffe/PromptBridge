@@ -8,7 +8,7 @@ function defaultHeaders(apiKey: string): HeadersInit {
     'Content-Type': 'application/json',
     // OpenRouter recommends setting these to identify your app
     'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
-    'X-Title': 'Multi LLM Researcher',
+'X-Title': 'PromptBridge',
   } as HeadersInit;
 }
 

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Multi LLM Researcher",
+  title: "PromptBridge",
   description: "Prompt multiple LLMs and synthesize a consensus via OpenRouter",
 };
 
