@@ -259,6 +259,34 @@ Be concise but comprehensive.`;
     return map;
   }, [models]);
 
+  // Phase 1: Model selection helpers
+  const [modelQuery, setModelQuery] = useLocalStorage<string>("model_query", "");
+  const [modelSort, setModelSort] = useLocalStorage<"alpha" | "none">("model_sort", "alpha");
+  const [selectedFirst, setSelectedFirst] = useLocalStorage<boolean>("model_selected_first", true);
+
+  const filteredSortedModels = useMemo(() => {
+    let list = models;
+    // Filter
+    const q = modelQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter((m) => (m.name || m.id).toLowerCase().includes(q));
+    }
+    // Sort
+    if (modelSort === "alpha") {
+      list = [...list].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+    } else {
+      list = [...list];
+    }
+    // Selected first
+    if (selectedFirst && selectedModels.length > 0) {
+      const selectedSet = new Set(selectedModels);
+      list.sort((a, b) => Number(selectedSet.has(b.id)) - Number(selectedSet.has(a.id)));
+    }
+    return list;
+  }, [models, modelQuery, modelSort, selectedFirst, selectedModels]);
+
+  const filteredCount = useMemo(() => filteredSortedModels.length, [filteredSortedModels]);
+
   return (
     <div className="relative min-h-screen text-zinc-100">
       {/* Background gradient and subtle grid overlay */}
@@ -310,7 +338,7 @@ Be concise but comprehensive.`;
         {/* Controls row */}
         <section className="mb-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
               <div className="flex items-center gap-2 text-xs opacity-80">
                 <label>Temp</label>
@@ -325,33 +353,119 @@ Be concise but comprehensive.`;
                 <span className="tabular-nums w-10 text-right">{temperature.toFixed(1)}</span>
               </div>
             </div>
+
             {apiKey ? (
               models.length === 0 ? (
                 <p className="text-sm opacity-70">Fetching models…</p>
               ) : (
-                <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
-                  {models.map((m) => {
-                    const checked = selectedModels.includes(m.id);
-                    return (
-                      <label key={m.id} className="flex items-center gap-2 text-sm">
+                <>
+                  {/* Selected chips row */}
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
+                        <span>Selected ({selectedModels.length})</span>
+                        {selectedModels.length === 0 && (
+                          <span className="opacity-60">None</span>
+                        )}
+                      </div>
+                      {selectedModels.length > 0 && (
+                        <div className="inline-flex flex-wrap gap-2 w-fit max-w-full">
+                          {selectedModels.map((id) => (
+                            <span key={id} className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs">
+                              <span className="truncate max-w-[180px]" title={id}>
+                                {modelsById[id]?.name || id}
+                              </span>
+                              <button
+                                className="p-1 rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                                aria-label={`Remove ${modelsById[id]?.name || id}`}
+                                onClick={() => setSelectedModels((prev) => prev.filter((x) => x !== id))}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <button
+                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                        onClick={() => setSelectedModels([])}
+                        disabled={selectedModels.length === 0}
+                      >
+                        Clear all
+                      </button>
+                      <button
+                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                        onClick={() => {
+                          const ids = new Set(models.map((m) => m.id));
+                          const picks = popularDefaults.filter((id) => ids.has(id)).slice(0, 4);
+                          setSelectedModels(picks);
+                        }}
+                      >
+                        Select defaults
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search and sort */}
+                  <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <input
+                      type="search"
+                      placeholder="Search models…"
+                      value={modelQuery}
+                      onChange={(e) => setModelQuery(e.target.value)}
+                      className="px-2 py-1.5 rounded-md border border-white/10 bg-black/20 w-full sm:w-72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                    />
+                    <div className="flex items-center gap-3">
+                      <label className="inline-flex items-center gap-2 text-xs opacity-90">
                         <input
                           type="checkbox"
-                          checked={checked}
-                          onChange={(e) =>
-                            setSelectedModels((prev) =>
-                              e.target.checked
-                                ? Array.from(new Set([...prev, m.id]))
-                                : prev.filter((id) => id !== m.id)
-                            )
-                          }
+                          checked={selectedFirst}
+                          onChange={(e) => setSelectedFirst(e.target.checked)}
                         />
-                        <span className="truncate" title={m.id}>
-                          {m.name || m.id}
-                        </span>
+                        Selected first
                       </label>
-                    );
-                  })}
-                </div>
+                      <label className="text-xs opacity-90 flex items-center gap-2">
+                        <span>Sort</span>
+                        <select
+                          className="px-2 py-1 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                          value={modelSort}
+                          onChange={(e) => setModelSort(e.target.value as "alpha" | "none")}
+                        >
+                          <option value="alpha">Alphabetical</option>
+                          <option value="none">None</option>
+                        </select>
+                      </label>
+                      <span className="text-xs opacity-70">{filteredCount} of {models.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Filtered list */}
+                  <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
+                    {filteredSortedModels.map((m) => {
+                      const checked = selectedModels.includes(m.id);
+                      return (
+                        <label key={m.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setSelectedModels((prev) =>
+                                e.target.checked
+                                  ? Array.from(new Set([...prev, m.id]))
+                                  : prev.filter((id) => id !== m.id)
+                              )
+                            }
+                          />
+                          <span className="truncate" title={m.id}>
+                            {m.name || m.id}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
               )
             ) : (
               <p className="text-sm opacity-70">Set your API key to load models.</p>
