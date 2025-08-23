@@ -5,20 +5,30 @@ import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
 
 function useLocalStorage<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
-    if (typeof window === "undefined") return initial;
+  // Start with the provided initial value on both server and first client render
+  // to avoid SSR/client hydration mismatches. Read localStorage after mount.
+  const [value, setValue] = useState<T>(initial);
+  const hydratedRef = useRef(false);
+
+  // Load from localStorage after mount
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : initial;
-    } catch {
-      return initial;
-    }
-  });
+      if (raw !== null) {
+        setValue(JSON.parse(raw) as T);
+      }
+    } catch {}
+    hydratedRef.current = true;
+  }, [key]);
+
+  // Persist to localStorage only after we've attempted to read existing value
   useEffect(() => {
+    if (!hydratedRef.current) return;
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {}
   }, [key, value]);
+
   return [value, setValue] as const;
 }
 
