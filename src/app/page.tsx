@@ -150,11 +150,15 @@ export default function Home() {
         const list = await fetchModels(apiKey);
         if (!mounted) return;
         setModels(list);
-        // initialize defaults if empty
+        // initialize defaults only on first run (when no prior selection exists in storage)
         if (selectedModels.length === 0) {
-          const ids = list.map((m) => m.id);
-          const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
-          if (picks.length > 0) setSelectedModels(picks);
+          let stored: string | null = null;
+          try { stored = window.localStorage.getItem("selected_models"); } catch {}
+          if (stored === null) {
+            const ids = list.map((m) => m.id);
+            const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
+            if (picks.length > 0) setSelectedModels(picks);
+          }
         }
         if (!summarizerModel) {
           const preferred = [
@@ -174,15 +178,18 @@ export default function Home() {
     };
   }, [apiKey, selectedModels.length, setSelectedModels, summarizerModel, setSummarizerModel, popularDefaults]);
 
+  const [uiError, setUiError] = useState<string>("");
+
   const onSend = async (inputPrompt: string) => {
     if (!apiKey) {
-      alert("Please set your OpenRouter API key first.");
+      setUiError("Please set your OpenRouter API key first.");
       return;
     }
     if (selectedModels.length === 0) {
-      alert("Select at least one model.");
+      setUiError("No models selected. Use ‘Browse models’ or search to pick at least one, then Send.");
       return;
     }
+    setUiError("");
 
     // Apply prompt options
     const options: string[] = [];
@@ -365,6 +372,13 @@ Be concise but comprehensive.`;
       <div className="pointer-events-none absolute inset-0 opacity-10 [background:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:12px_12px]" />
 
       <div className="relative z-10 px-4 sm:px-6 md:px-8">
+        {/* Top-level UI error banner */}
+        {uiError && (
+          <div role="alert" className="mb-3 rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 px-3 py-2 flex items-start justify-between gap-3">
+            <span className="text-sm">{uiError}</span>
+            <button className="px-2 py-1 text-xs rounded-md border border-white/10 hover:bg-white/10" onClick={() => setUiError("")}>Dismiss</button>
+          </div>
+        )}
         {/* Hero header */}
         <section className="py-6 sm:py-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_-24px_rgba(0,0,0,0.6)] p-4 sm:p-6">
