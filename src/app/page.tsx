@@ -411,7 +411,7 @@ export default function Home() {
 
         {/* Controls row */}
         <section className="mb-6">
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
+          <div className="inline-block w-fit max-w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
             </div>
