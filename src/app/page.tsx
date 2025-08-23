@@ -335,6 +335,10 @@ Be concise but comprehensive.`;
   }, [models, modelQuery, modelSort, selectedFirst, selectedModels]);
 
   const filteredCount = useMemo(() => filteredSortedModels.length, [filteredSortedModels]);
+  // Collapse/expand model list
+  const [modelListOpen, setModelListOpen] = useState(false);
+  const isSearching = modelQuery.trim().length > 0;
+  const showModelList = modelListOpen || isSearching;
 
   // Helpers to safely parse numeric inputs
   function safeNum(v: string, min?: number, max?: number): number | undefined {
@@ -470,56 +474,69 @@ Be concise but comprehensive.`;
                       placeholder="Search models…"
                       value={modelQuery}
                       onChange={(e) => setModelQuery(e.target.value)}
+                      onFocus={() => setModelListOpen(true)}
                       className="px-2 py-1.5 rounded-md border border-white/10 bg-black/20 w-full sm:w-72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
                     />
                     <div className="flex items-center gap-3">
-                      <label className="inline-flex items-center gap-2 text-xs opacity-90">
-                        <input
-                          type="checkbox"
-                          checked={selectedFirst}
-                          onChange={(e) => setSelectedFirst(e.target.checked)}
-                        />
-                        Selected first
-                      </label>
-                      <label className="text-xs opacity-90 flex items-center gap-2">
-                        <span>Sort</span>
-                        <select
-                          className="px-2 py-1 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
-                          value={modelSort}
-                          onChange={(e) => setModelSort(e.target.value as "alpha" | "none")}
-                        >
-                          <option value="alpha">Alphabetical</option>
-                          <option value="none">None</option>
-                        </select>
-                      </label>
-                      <span className="text-xs opacity-70">{filteredCount} of {models.length}</span>
+                      <button
+                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                        onClick={() => setModelListOpen((v) => !v)}
+                      >
+                        {showModelList ? "Hide list" : "Browse models"}
+                      </button>
+                      {showModelList && (
+                        <>
+                          <label className="inline-flex items-center gap-2 text-xs opacity-90">
+                            <input
+                              type="checkbox"
+                              checked={selectedFirst}
+                              onChange={(e) => setSelectedFirst(e.target.checked)}
+                            />
+                            Selected first
+                          </label>
+                          <label className="text-xs opacity-90 flex items-center gap-2">
+                            <span>Sort</span>
+                            <select
+                              className="px-2 py-1 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                              value={modelSort}
+                              onChange={(e) => setModelSort(e.target.value as "alpha" | "none")}
+                            >
+                              <option value="alpha">Alphabetical</option>
+                              <option value="none">None</option>
+                            </select>
+                          </label>
+                          <span className="text-xs opacity-70">{filteredCount} of {models.length}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   {/* Filtered list */}
-                  <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
-                    {filteredSortedModels.map((m) => {
-                      const checked = selectedModels.includes(m.id);
-                      return (
-                        <label key={m.id} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) =>
-                              setSelectedModels((prev) =>
-                                e.target.checked
-                                  ? Array.from(new Set([...prev, m.id]))
-                                  : prev.filter((id) => id !== m.id)
-                              )
-                            }
-                          />
-                          <span className="truncate" title={m.id}>
-                            {m.name || m.id}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  {showModelList && (
+                    <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
+                      {filteredSortedModels.map((m) => {
+                        const checked = selectedModels.includes(m.id);
+                        return (
+                          <label key={m.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setSelectedModels((prev) =>
+                                  e.target.checked
+                                    ? Array.from(new Set([...prev, m.id]))
+                                    : prev.filter((id) => id !== m.id)
+                                )
+                              }
+                            />
+                            <span className="truncate" title={m.id}>
+                              {m.name || m.id}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </>
               )
             ) : (
