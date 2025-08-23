@@ -288,6 +288,15 @@ export default function Home() {
 
 
   const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Auto-resize the compose textarea as content grows/shrinks
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
 
   const modelsById = useMemo(() => {
     const map: Record<string, ModelInfo> = {};
@@ -552,10 +561,16 @@ export default function Home() {
               className="flex gap-2"
             >
               <textarea
-                className="w-full min-h-[92px] px-3 py-2 rounded-lg border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                ref={inputRef}
+                className="w-full min-h-[92px] px-3 py-2 rounded-lg border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 overflow-hidden resize-none"
                 placeholder="Enter your prompt…"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  el.style.height = "auto";
+                  el.style.height = `${el.scrollHeight}px`;
+                }}
               />
               <button
                 className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] h-fit"
