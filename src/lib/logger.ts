@@ -10,7 +10,6 @@ export function log(level: LogLevel, domain: string, event: string, data?: unkno
   const entry = { ts: Date.now(), level, domain, event, data };
   history.push(entry);
   const prefix = `[${new Date(entry.ts).toISOString()}][${level.toUpperCase()}][${domain}] ${event}`;
-  // eslint-disable-next-line no-console
   if (level === 'error') console.error(prefix, data ?? '');
   else if (level === 'warn') console.warn(prefix, data ?? '');
   else console.log(prefix, data ?? '');

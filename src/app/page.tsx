@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { Key, Send, Square, Copy, Maximize2, X } from "lucide-react";
 import { fetchModels, streamChat } from "@/lib/openrouter";
@@ -35,7 +35,7 @@ function useLocalStorage<T>(key: string, initial: T) {
 }
 
 // Lightweight tooltip component to provide hover/focus explanations
-function Tip({ text, children }: { text: string; children: any }) {
+function Tip({ text, children }: { text: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div
