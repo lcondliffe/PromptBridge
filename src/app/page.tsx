@@ -67,10 +67,6 @@ export default function Home() {
     "selected_models",
     []
   );
-  const [summarizerModel, setSummarizerModel] = useLocalStorage<string>(
-    "summarizer_model",
-    ""
-  );
   const [temperature, setTemperature] = useLocalStorage<number>(
     "temperature",
     0.7
@@ -111,8 +107,6 @@ export default function Home() {
   const [panes, setPanes] = useState<Record<string, Pane>>({});
   const controllersRef = useRef<Record<string, AbortController>>({});
 
-  // Summary pane
-  const [summary, setSummary] = useState<Pane>({ text: "", running: false });
 
   // Expanded (maximized) result pane
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -149,16 +143,10 @@ export default function Home() {
   function maybeInitSelections(list: ModelInfo[]) {
     try {
       const storedSel = window.localStorage.getItem("selected_models");
-      const storedSumm = window.localStorage.getItem("summarizer_model");
       const ids = list.map((m) => m.id);
       if (!storedSel) {
         const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
         if (picks.length > 0) setSelectedModels(picks);
-      }
-      if (!storedSumm) {
-        const preferred = ["anthropic/claude-3.5-sonnet", "openai/gpt-4o-mini"];
-        const pick = preferred.find((p) => ids.includes(p)) || ids[0] || "";
-        if (pick) setSummarizerModel(pick);
       }
     } catch {}
   }
@@ -298,48 +286,6 @@ export default function Home() {
     );
   };
 
-  const onSummarize = () => {
-    if (!apiKey) return alert("Set API key first.");
-    if (!summarizerModel) return alert("Choose a summarizer model.");
-
-    const entries = Object.entries(panes);
-    if (entries.length === 0) return;
-
-    const content = entries
-      .map(([model, pane]) => `### ${model}\n${pane.text.trim()}`)
-      .join("\n\n");
-
-    const sys = `You are a neutral synthesis engine. Given multiple model answers to the same question, produce a structured summary with:
-- Consensus: where the models agree
-- Contradictions: where they disagree (cite models by ID)
-- Caveats/assumptions: note uncertainties or missing info
-- Recommendations / next steps
-Be concise but comprehensive.`;
-
-    setSummary({ text: "", running: true });
-
-    const handle = streamChat(
-      {
-        apiKey,
-        model: summarizerModel,
-        temperature: Math.min(temperature, 0.7),
-        maxTokens: Math.max(1024, maxTokens || 1024),
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content },
-        ],
-      },
-      {
-        onToken: (chunk) =>
-          setSummary((s) => ({ ...s, text: s.text + chunk })),
-        onDone: () => setSummary((s) => ({ ...s, running: false })),
-        onError: (err) =>
-          setSummary((s) => ({ ...s, running: false, error: err.message })),
-      }
-    );
-    controllersRef.current["__summary__"] = handle.abortController;
-    handle.promise.catch(() => {});
-  };
 
   const [input, setInput] = useState("");
 
@@ -422,7 +368,7 @@ Be concise but comprehensive.`;
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">PromptBridge</h1>
-                <p className="text-sm opacity-80">Prompt multiple models and synthesize a consensus.</p>
+                <p className="text-sm opacity-80">Prompt multiple models side-by-side.</p>
               </div>
             </div>
             <div className="w-full sm:w-auto">
@@ -455,7 +401,7 @@ Be concise but comprehensive.`;
         </section>
 
         {/* Controls row */}
-        <section className="mb-6 grid gap-4 md:grid-cols-2">
+        <section className="mb-6">
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
@@ -592,60 +538,6 @@ Be concise but comprehensive.`;
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
-            <h2 className="font-medium mb-3">Summarizer model</h2>
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-              <select
-                className="px-2 py-2 rounded-md border border-white/10 bg-black/20 w-full sm:flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
-                value={summarizerModel}
-                onChange={(e) => setSummarizerModel(e.target.value)}
-              >
-                <option value="">Select…</option>
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name || m.id}
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center gap-2">
-                <label className="text-sm opacity-80">Max tokens</label>
-                <input
-                  type="number"
-                  className="px-2 py-2 rounded-md border border-white/10 bg-black/20 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
-                  value={maxTokens ?? 1024}
-                  onChange={(e) => setMaxTokens(parseInt(e.target.value || "1024", 10))}
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] disabled:opacity-50"
-                onClick={onSummarize}
-                disabled={!summarizerModel || Object.values(panes).every((p) => !p.text)}
-              >
-                Summarize
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50"
-                onClick={stopAll}
-                disabled={Object.values(panes).every((p) => !p.running)}
-              >
-                <Square className="size-4" /> Stop
-              </button>
-            </div>
-            {summary.text && (
-              <div className="mt-4">
-                <h3 className="font-medium mb-2">Summary</h3>
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3 whitespace-pre-wrap text-sm">
-                  {summary.text}
-                  {summary.running && <span className="opacity-60">▌</span>}
-                </div>
-              </div>
-            )}
-            {summary.error && (
-              <p className="text-sm text-red-400 mt-2">{summary.error}</p>
-            )}
-          </div>
         </section>
 
         {/* Compose */}
@@ -670,6 +562,14 @@ Be concise but comprehensive.`;
                 type="submit"
               >
                 <Send className="size-4" /> Send
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50 h-fit"
+                type="button"
+                onClick={stopAll}
+                disabled={Object.values(panes).every((p) => !p.running)}
+              >
+                <Square className="size-4" /> Stop all
               </button>
             </form>
             {/* Prompt options */}
@@ -726,6 +626,12 @@ Be concise but comprehensive.`;
                       </div>
                     </Tip>
                   </div>
+                  <Tip text="Upper bound on tokens generated per model (provider caps may still apply).">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Max tokens</span>
+                      <input type="number" min={1} step={1} value={maxTokens ?? ''} onChange={(e)=> setMaxTokens(safeInt(e.target.value, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
 
                   <Tip text="Nucleus sampling. Consider only top tokens whose cumulative probability ≤ P.">
                     <label className="flex items-center gap-2 text-xs">

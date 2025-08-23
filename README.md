@@ -1,13 +1,13 @@
 # PromptBridge
 
-A clean web UI to send a single prompt to multiple LLMs (via OpenRouter), view each model’s response in its own pane, and then use a nominated model to summarize for consensus, contradictions, caveats, and recommendations.
+A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and view each model’s response in its own pane, side-by-side.
 
 ## Features
 
-- Select multiple models and one summarizer model (fetched from OpenRouter)
+- Browse and select multiple models (fetched from OpenRouter)
 - Paste your OpenRouter API key (stored locally in your browser)
 - Send a prompt once; responses stream into separate panes
-- Generate a structured summary from a nominated model
+- Per-pane Stop/Copy and a global Stop all control
 - Light/dark-friendly Tailwind UI
 
 ## Getting Started
@@ -26,9 +26,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 In the UI:
 - Click “Set API Key” and paste your OpenRouter API key (stored in localStorage)
-- Choose one or more models, and a summarizer model
+- Choose one or more models
 - Type a prompt and press Enter or click Send
-- Optionally click “Summarize” to synthesize consensus and contradictions
+- Optionally adjust advanced sampling (temperature, top-p, etc.)
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
