@@ -368,9 +368,9 @@ export default function Home() {
             <button className="px-2 py-1 text-xs rounded-md border border-white/10 hover:bg-white/10" onClick={() => setUiError("")}>Dismiss</button>
           </div>
         )}
-        {/* Hero header */}
-        <section className="py-6 sm:py-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_-24px_rgba(0,0,0,0.6)] p-4 sm:p-6">
+        {/* Sticky header */}
+        <header className="sticky top-0 z-50 -mx-4 sm:-mx-6 md:-mx-8 bg-gradient-to-b from-zinc-950/70 to-zinc-900/40 backdrop-blur-md border-b border-white/10">
+          <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="shrink-0 rounded-xl overflow-hidden border border-white/10 bg-white/10">
                 <Image src="/logo.webp" width={48} height={48} alt="PromptBridge logo" priority />
@@ -407,7 +407,7 @@ export default function Home() {
               )}
             </div>
           </div>
-        </section>
+        </header>
 
         {/* Controls row */}
         <section className="mb-6">
