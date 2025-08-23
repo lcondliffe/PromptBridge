@@ -34,6 +34,28 @@ function useLocalStorage<T>(key: string, initial: T) {
   return [value, setValue] as const;
 }
 
+// Lightweight tooltip component to provide hover/focus explanations
+function Tip({ text, children }: { text: string; children: any }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="relative inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      {children}
+      <div
+        role="tooltip"
+        className={`pointer-events-none absolute z-30 -top-2 left-1/2 -translate-x-1/2 -translate-y-full whitespace-pre-wrap rounded-md border border-white/10 bg-black/80 px-2 py-1 text-[11px] shadow transition duration-150 ${open ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   // API key handling
   const [apiKey, setApiKey] = useLocalStorage<string>("openrouter_api_key", "");
@@ -597,6 +619,21 @@ Be concise but comprehensive.`;
                 <Send className="size-4" /> Send
               </button>
             </form>
+            {/* Temperature */}
+            <div className="mt-3 flex items-center gap-2">
+              <Tip text="Controls randomness/creativity. Lower = deterministic, higher = diverse.">
+                <span className="text-sm opacity-80">Temp</span>
+              </Tip>
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.1}
+                value={temperature}
+                onChange={(e) => setTemperature(parseFloat(e.target.value))}
+              />
+              <span className="text-sm tabular-nums w-10 text-right">{temperature.toFixed(1)}</span>
+            </div>
             {/* Prompt options */}
             <div className="mt-3 inline-flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
               <label className="inline-flex items-center gap-2 text-sm">
@@ -634,42 +671,60 @@ Be concise but comprehensive.`;
               </button>
               {showAdvanced && (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="flex items-center gap-2 text-xs" title="Nucleus sampling. Consider only top tokens whose cumulative probability ≤ P.">
-                    <span className="w-28 opacity-80">Top P</span>
-                    <input type="number" min={0} max={1} step={0.01} value={topP ?? ''} onChange={(e)=> setTopP(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Top-K sampling. Limit choices to the K most likely tokens (0 disables).">
-                    <span className="w-28 opacity-80">Top K</span>
-                    <input type="number" min={0} step={1} value={topK ?? ''} onChange={(e)=> setTopK(safeInt(e.target.value, 0))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Discourage frequent tokens based on occurrence count. Negative encourages reuse.">
-                    <span className="w-28 opacity-80">Freq Penalty</span>
-                    <input type="number" min={-2} max={2} step={0.1} value={freqPenalty ?? ''} onChange={(e)=> setFreqPenalty(safeNum(e.target.value, -2, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Discourage repetition regardless of count. Negative encourages reuse.">
-                    <span className="w-28 opacity-80">Presence Penalty</span>
-                    <input type="number" min={-2} max={2} step={0.1} value={presencePenalty ?? ''} onChange={(e)=> setPresencePenalty(safeNum(e.target.value, -2, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Reduce repetition by penalizing more probable repeated tokens.">
-                    <span className="w-28 opacity-80">Repetition Pen.</span>
-                    <input type="number" min={0} max={2} step={0.1} value={repetitionPenalty ?? ''} onChange={(e)=> setRepetitionPenalty(safeNum(e.target.value, 0, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Minimum probability relative to most likely token.">
-                    <span className="w-28 opacity-80">Min P</span>
-                    <input type="number" min={0} max={1} step={0.01} value={minP ?? ''} onChange={(e)=> setMinP(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Consider tokens with sufficiently high probabilities relative to the best.">
-                    <span className="w-28 opacity-80">Top A</span>
-                    <input type="number" min={0} max={1} step={0.01} value={topA ?? ''} onChange={(e)=> setTopA(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Use the same seed to make outputs repeatable (determinism not guaranteed).">
-                    <span className="w-28 opacity-80">Seed</span>
-                    <input type="number" step={1} value={seed ?? ''} onChange={(e)=> setSeed(safeInt(e.target.value))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs" title="Stop when any of these strings are generated.">
-                    <span className="w-28 opacity-80">Stop</span>
-                    <input type="text" placeholder="e.g. ###,END" value={stopStr} onChange={(e)=> setStopStr(e.target.value)} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
-                  </label>
+                  <Tip text="Nucleus sampling. Consider only top tokens whose cumulative probability ≤ P.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Top P</span>
+                      <input type="number" min={0} max={1} step={0.01} value={topP ?? ''} onChange={(e)=> setTopP(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Top-K sampling. Limit choices to the K most likely tokens (0 disables).">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Top K</span>
+                      <input type="number" min={0} step={1} value={topK ?? ''} onChange={(e)=> setTopK(safeInt(e.target.value, 0))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Discourage frequent tokens based on occurrence count. Negative encourages reuse.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Freq Penalty</span>
+                      <input type="number" min={-2} max={2} step={0.1} value={freqPenalty ?? ''} onChange={(e)=> setFreqPenalty(safeNum(e.target.value, -2, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Discourage repetition regardless of count. Negative encourages reuse.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Presence Penalty</span>
+                      <input type="number" min={-2} max={2} step={0.1} value={presencePenalty ?? ''} onChange={(e)=> setPresencePenalty(safeNum(e.target.value, -2, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Reduce repetition by penalizing more probable repeated tokens.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Repetition Pen.</span>
+                      <input type="number" min={0} max={2} step={0.1} value={repetitionPenalty ?? ''} onChange={(e)=> setRepetitionPenalty(safeNum(e.target.value, 0, 2))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Minimum probability relative to most likely token.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Min P</span>
+                      <input type="number" min={0} max={1} step={0.01} value={minP ?? ''} onChange={(e)=> setMinP(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Consider tokens with sufficiently high probabilities relative to the best.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Top A</span>
+                      <input type="number" min={0} max={1} step={0.01} value={topA ?? ''} onChange={(e)=> setTopA(safeNum(e.target.value, 0, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Use the same seed to make outputs repeatable (determinism not guaranteed).">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Seed</span>
+                      <input type="number" step={1} value={seed ?? ''} onChange={(e)=> setSeed(safeInt(e.target.value))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
+                  <Tip text="Stop when any of these strings are generated.">
+                    <label className="flex items-center gap-2 text-xs">
+                      <span className="w-28 opacity-80">Stop</span>
+                      <input type="text" placeholder="e.g. ###,END" value={stopStr} onChange={(e)=> setStopStr(e.target.value)} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                    </label>
+                  </Tip>
                 </div>
               )}
             </div>
