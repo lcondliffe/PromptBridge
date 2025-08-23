@@ -439,7 +439,7 @@ Be concise but comprehensive.`;
               </button>
             </form>
             {/* Prompt options */}
-            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="mt-3 inline-flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
               <label className="inline-flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
