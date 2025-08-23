@@ -100,7 +100,7 @@ jobs:
           echo "FullSemVer: ${{ steps.gitversion.outputs.FullSemVer }}"
 
   build_scan_and_push:
-    name: Build - Docker Image Build, Scan, Push
+    name: Build - Docker Image
     runs-on: ubuntu-latest
     needs: [lint_and_types, security, gitversion]
     steps:
