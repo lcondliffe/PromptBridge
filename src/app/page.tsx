@@ -407,18 +407,6 @@ Be concise but comprehensive.`;
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
-              <div className="flex items-center gap-2 text-xs opacity-80" title="Controls randomness/creativity. Lower = deterministic, higher = diverse.">
-                <label>Temp</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={temperature}
-                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                />
-                <span className="tabular-nums w-10 text-right">{temperature.toFixed(1)}</span>
-              </div>
             </div>
 
             {apiKey ? (
@@ -619,21 +607,6 @@ Be concise but comprehensive.`;
                 <Send className="size-4" /> Send
               </button>
             </form>
-            {/* Temperature */}
-            <div className="mt-3 flex items-center gap-2">
-              <Tip text="Controls randomness/creativity. Lower = deterministic, higher = diverse.">
-                <span className="text-sm opacity-80">Temp</span>
-              </Tip>
-              <input
-                type="range"
-                min={0}
-                max={2}
-                step={0.1}
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              />
-              <span className="text-sm tabular-nums w-10 text-right">{temperature.toFixed(1)}</span>
-            </div>
             {/* Prompt options */}
             <div className="mt-3 inline-flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
               <label className="inline-flex items-center gap-2 text-sm">
@@ -671,6 +644,24 @@ Be concise but comprehensive.`;
               </button>
               {showAdvanced && (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {/* Temperature slider (full width) */}
+                  <div className="sm:col-span-2">
+                    <Tip text="Controls randomness/creativity. Lower = deterministic, higher = diverse.">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-28 opacity-80">Temp</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.1}
+                          value={temperature}
+                          onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                        />
+                        <span className="tabular-nums w-10 text-right">{temperature.toFixed(1)}</span>
+                      </div>
+                    </Tip>
+                  </div>
+
                   <Tip text="Nucleus sampling. Consider only top tokens whose cumulative probability ≤ P.">
                     <label className="flex items-center gap-2 text-xs">
                       <span className="w-28 opacity-80">Top P</span>
