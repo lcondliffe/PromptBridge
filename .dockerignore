@@ -1,0 +1,24 @@
+# VCS
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store
+
+# Next.js build output
+.next
+out
+build
+
+# Editor & OS
+.DS_Store
+*.swp
+*.swo
+
+# Env and secrets (build should inject securely via CI)
+.env
+.env.*

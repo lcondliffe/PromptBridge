@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatParams, ModelInfo, StreamCallbacks, StreamHandle } from './types';
+import type { ChatParams, ModelInfo, StreamCallbacks, StreamHandle } from './types';
 import { log } from './logger';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
@@ -66,7 +66,7 @@ export function streamChat(
 ): StreamHandle {
   const abortController = new AbortController();
 
-  const body: any = {
+  const body: Record<string, unknown> = {
     model,
     messages,
     temperature,
@@ -93,8 +93,8 @@ export function streamChat(
         const preview = Array.isArray(messages)
           ? messages.map((m) => ({ role: m.role, len: (m.content || '').length })).slice(-3)
           : [];
-        const sanitized: any = { ...body, messages_preview: preview };
-        delete sanitized.messages;
+        const { messages: _omit, ...rest } = body as Record<string, unknown>;
+        const sanitized = { ...rest, messages_preview: preview };
         log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions` });
       }
 

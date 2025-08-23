@@ -36,6 +36,51 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - Your API key is stored in your browser’s localStorage only; no backend is used.
 - The app sends requests directly to OpenRouter.
 
+---
+
+## Container build and run
+
+This repo includes a Dockerfile that produces a slim, standalone Next.js server image.
+
+Build locally:
+
+```bash
+docker build -t promptbridge:local .
+```
+
+Run locally:
+
+```bash
+docker run --rm -p 3000:3000 promptbridge:local
+```
+
+Open http://localhost:3000 and set your OpenRouter API key in the UI. No server-side secrets are required.
+
+Notes:
+- The image uses Node 20 (Debian bookworm-slim) and runs as a non-root user.
+- The build leverages Next.js `output: 'standalone'` to keep runtime small.
+
+## CI/CD (GitHub Actions)
+
+Workflow: `.github/workflows/ci.yml`
+
+What it does:
+- Lint and typecheck using ESLint and TypeScript (`pnpm lint`, `pnpm exec tsc --noEmit`).
+- Security checks (run concurrently):
+  - Gitleaks for secret scanning (fails job on findings).
+  - Semgrep SAST (non-blocking today; uploads SARIF to GitHub Code Scanning).
+- Compute a semantic version via GitVersion.
+- Build the Docker image with Buildx, scan it using Trivy (fails on HIGH/CRITICAL; uploads SARIF).
+- Push to GHCR (`ghcr.io/<owner>/<repo>`) only for pushes to `main` or when tags are created. Tags pushed:
+  - `<SemVer>` from GitVersion
+  - `latest` (only on `main`)
+
+Required repository settings/permissions:
+- Actions permissions must allow `Read and write` for packages (for GHCR).
+- The default `GITHUB_TOKEN` is used for pushing images and uploading SARIF.
+
+---
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
@@ -44,9 +89,3 @@ To learn more about Next.js, take a look at the following resources:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
