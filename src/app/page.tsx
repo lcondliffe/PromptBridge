@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { Key, Send, Square, Copy, Maximize2, X } from "lucide-react";
 import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
 
@@ -67,6 +69,24 @@ export default function Home() {
 
   // Summary pane
   const [summary, setSummary] = useState<Pane>({ text: "", running: false });
+
+  // Expanded (maximized) result pane
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Manage body scroll lock and Escape to close when expanded
+  useEffect(() => {
+    if (!expandedId) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpandedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = original;
+    };
+  }, [expandedId]);
 
   const popularDefaults = [
     "openai/gpt-4o-mini",
@@ -221,205 +241,293 @@ Be concise but comprehensive.`;
   }, [models]);
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
-        <div>
-<h1 className="text-2xl font-semibold">PromptBridge</h1>
-          <p className="text-sm opacity-80">Prompt multiple models and synthesize a consensus.</p>
-        </div>
-        <div className="flex flex-wrap gap-3 items-center">
-          <button
-            className="px-3 py-2 rounded border hover:bg-black/5 dark:hover:bg-white/10"
-            onClick={() => setShowKey((v) => !v)}
-          >
-            {apiKey ? "Update API Key" : "Set API Key"}
-          </button>
-          {showKey && (
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                placeholder="OpenRouter API Key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="px-2 py-1 rounded border bg-transparent min-w-[260px]"
-              />
-              <span className="text-xs opacity-70">Stored locally</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <label className="text-sm opacity-80">Temp</label>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.1}
-              value={temperature}
-              onChange={(e) => setTemperature(parseFloat(e.target.value))}
-            />
-            <span className="text-sm w-10 text-right">{temperature.toFixed(1)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm opacity-80">Max tokens</label>
-            <input
-              type="number"
-              className="px-2 py-1 rounded border bg-transparent w-24"
-              value={maxTokens ?? 1024}
-              onChange={(e) => setMaxTokens(parseInt(e.target.value || "1024", 10))}
-            />
-          </div>
-        </div>
-      </header>
+    <div className="relative min-h-screen text-zinc-100">
+      {/* Background gradient and subtle grid overlay */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-zinc-950 via-neutral-900 to-zinc-900" />
+      <div className="pointer-events-none absolute inset-0 opacity-10 [background:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:12px_12px]" />
 
-      <section className="mb-4 grid gap-3 md:grid-cols-2">
-        <div className="rounded border p-3">
-          <h2 className="font-medium mb-2">Select models</h2>
-          {apiKey ? (
-            models.length === 0 ? (
-              <p className="text-sm opacity-70">Fetching models…</p>
-            ) : (
-              <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {models.map((m) => {
-                  const checked = selectedModels.includes(m.id);
-                  return (
-                    <label key={m.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) =>
-                          setSelectedModels((prev) =>
-                            e.target.checked
-                              ? Array.from(new Set([...prev, m.id]))
-                              : prev.filter((id) => id !== m.id)
-                          )
-                        }
-                      />
-                      <span className="truncate" title={m.id}>
-                        {m.name || m.id}
-                      </span>
-                    </label>
-                  );
-                })}
+      <div className="relative z-10 px-4 sm:px-6 md:px-8">
+        {/* Hero header */}
+        <section className="py-6 sm:py-8">
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_-24px_rgba(0,0,0,0.6)] p-4 sm:p-6">
+            <div className="flex items-center gap-4">
+              <div className="shrink-0 rounded-xl overflow-hidden border border-white/10 bg-white/10">
+                <Image src="/logo.webp" width={48} height={48} alt="PromptBridge logo" priority />
               </div>
-            )
-          ) : (
-            <p className="text-sm opacity-70">Set your API key to load models.</p>
-          )}
-        </div>
-        <div className="rounded border p-3">
-          <h2 className="font-medium mb-2">Summarizer model</h2>
-          <select
-            className="px-2 py-1 rounded border bg-transparent w-full"
-            value={summarizerModel}
-            onChange={(e) => setSummarizerModel(e.target.value)}
-          >
-            <option value="">Select…</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name || m.id}
-              </option>
-            ))}
-          </select>
-          <div className="mt-3 flex gap-2">
-            <button
-              className="px-3 py-2 rounded border hover:bg-black/5 dark:hover:bg-white/10"
-              onClick={onSummarize}
-              disabled={!summarizerModel || Object.values(panes).every((p) => !p.text)}
-            >
-              Summarize
-            </button>
-            <button
-              className="px-3 py-2 rounded border hover:bg-black/5 dark:hover:bg-white/10"
-              onClick={stopAll}
-              disabled={Object.values(panes).every((p) => !p.running)}
-            >
-              Stop
-            </button>
-          </div>
-          {summary.text && (
-            <div className="mt-3">
-              <h3 className="font-medium mb-1">Summary</h3>
-              <div className="rounded border p-3 whitespace-pre-wrap text-sm">
-                {summary.text}
-                {summary.running && <span className="opacity-60">▌</span>}
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">PromptBridge</h1>
+                <p className="text-sm opacity-80">Prompt multiple models and synthesize a consensus.</p>
               </div>
             </div>
-          )}
-          {summary.error && (
-            <p className="text-sm text-red-600 mt-2">{summary.error}</p>
-          )}
-        </div>
-      </section>
-
-      <section className="mb-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (input.trim()) onSend(input.trim());
-          }}
-          className="flex gap-2"
-        >
-          <textarea
-            className="w-full min-h-[72px] px-3 py-2 rounded border bg-transparent"
-            placeholder="Enter your prompt…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button
-            className="px-3 py-2 rounded border hover:bg-black/5 dark:hover:bg-white/10 h-fit"
-            type="submit"
-          >
-            Send
-          </button>
-        </form>
-      </section>
-
-      {Object.keys(panes).length > 0 && (
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {selectedModels.map((id) => (
-            <div key={id} className="rounded border p-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium truncate" title={id}>
-                  {modelsById[id]?.name || id}
-                </h3>
-                {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
-              </div>
-              <div className="whitespace-pre-wrap text-sm min-h-[120px]">
-                {panes[id]?.text}
-                {panes[id]?.running && <span className="opacity-60">▌</span>}
-              </div>
-              {panes[id]?.error && (
-                <p className="text-sm text-red-600 mt-2">{panes[id]?.error}</p>
+            <div className="relative">
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98]"
+                onClick={() => setShowKey((v) => !v)}
+                aria-haspopup="dialog"
+                aria-expanded={showKey}
+              >
+                <Key className="size-4" /> {apiKey ? "Update API Key" : "Set API Key"}
+              </button>
+              {showKey && (
+                <div className="absolute right-0 mt-2 w-[320px] rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg p-3">
+                  <label className="block text-xs opacity-80 mb-1">OpenRouter API Key</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="sk-or-..."
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                    />
+                    <span className="text-[10px] opacity-70">Stored locally</span>
+                  </div>
+                </div>
               )}
-              <div className="mt-2 flex gap-2">
-                <button
-                  className="px-2 py-1 rounded border text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                  onClick={() => {
-                    const c = controllersRef.current[id];
-                    c?.abort();
-                    setPanes((p) => ({ ...p, [id]: { ...(p[id] || { text: "" }), running: false } }));
-                  }}
-                  disabled={!panes[id]?.running}
-                >
-                  Stop
-                </button>
-                <button
-                  className="px-2 py-1 rounded border text-xs hover:bg-black/5 dark:hover:bg-white/10"
-                  onClick={() => {
-                    const text = panes[id]?.text || "";
-                    navigator.clipboard.writeText(text).catch(() => {});
-                  }}
-                >
-                  Copy
-                </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Controls row */}
+        <section className="mb-6 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-medium">Select models</h2>
+              <div className="flex items-center gap-2 text-xs opacity-80">
+                <label>Temp</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                />
+                <span className="tabular-nums w-10 text-right">{temperature.toFixed(1)}</span>
               </div>
             </div>
-          ))}
-        </section>
-      )}
+            {apiKey ? (
+              models.length === 0 ? (
+                <p className="text-sm opacity-70">Fetching models…</p>
+              ) : (
+                <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
+                  {models.map((m) => {
+                    const checked = selectedModels.includes(m.id);
+                    return (
+                      <label key={m.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            setSelectedModels((prev) =>
+                              e.target.checked
+                                ? Array.from(new Set([...prev, m.id]))
+                                : prev.filter((id) => id !== m.id)
+                            )
+                          }
+                        />
+                        <span className="truncate" title={m.id}>
+                          {m.name || m.id}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              <p className="text-sm opacity-70">Set your API key to load models.</p>
+            )}
+          </div>
 
-      <footer className="mt-8 text-xs opacity-70">
-        Powered by OpenRouter. API key stored locally. No server.
-      </footer>
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
+            <h2 className="font-medium mb-3">Summarizer model</h2>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              <select
+                className="px-2 py-2 rounded-md border border-white/10 bg-black/20 w-full sm:flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                value={summarizerModel}
+                onChange={(e) => setSummarizerModel(e.target.value)}
+              >
+                <option value="">Select…</option>
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name || m.id}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <label className="text-sm opacity-80">Max tokens</label>
+                <input
+                  type="number"
+                  className="px-2 py-2 rounded-md border border-white/10 bg-black/20 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                  value={maxTokens ?? 1024}
+                  onChange={(e) => setMaxTokens(parseInt(e.target.value || "1024", 10))}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] disabled:opacity-50"
+                onClick={onSummarize}
+                disabled={!summarizerModel || Object.values(panes).every((p) => !p.text)}
+              >
+                Summarize
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50"
+                onClick={stopAll}
+                disabled={Object.values(panes).every((p) => !p.running)}
+              >
+                <Square className="size-4" /> Stop
+              </button>
+            </div>
+            {summary.text && (
+              <div className="mt-4">
+                <h3 className="font-medium mb-2">Summary</h3>
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3 whitespace-pre-wrap text-sm">
+                  {summary.text}
+                  {summary.running && <span className="opacity-60">▌</span>}
+                </div>
+              </div>
+            )}
+            {summary.error && (
+              <p className="text-sm text-red-400 mt-2">{summary.error}</p>
+            )}
+          </div>
+        </section>
+
+        {/* Compose */}
+        <section className="mb-6">
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
+            <h2 className="font-medium mb-3">Compose prompt</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (input.trim()) onSend(input.trim());
+              }}
+              className="flex gap-2"
+            >
+              <textarea
+                className="w-full min-h-[92px] px-3 py-2 rounded-lg border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                placeholder="Enter your prompt…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] h-fit"
+                type="submit"
+              >
+                <Send className="size-4" /> Send
+              </button>
+            </form>
+          </div>
+        </section>
+
+        {/* Results */}
+        {Object.keys(panes).length > 0 && (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {selectedModels.map((id) => (
+              <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium truncate" title={id}>
+                    {modelsById[id]?.name || id}
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
+                    <button
+                      className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                      aria-label="Maximize result"
+                      onClick={() => setExpandedId(id)}
+                    >
+                      <Maximize2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="whitespace-pre-wrap text-sm min-h-[140px]">
+                  {panes[id]?.text}
+                  {panes[id]?.running && <span className="opacity-60">▌</span>}
+                </div>
+                {panes[id]?.error && (
+                  <p className="text-sm text-red-400 mt-2">{panes[id]?.error}</p>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                    onClick={() => {
+                      const c = controllersRef.current[id];
+                      c?.abort();
+                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { text: "" }), running: false } }));
+                    }}
+                    disabled={!panes[id]?.running}
+                  >
+                    <Square className="size-3.5" /> Stop
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                    onClick={() => {
+                      const text = panes[id]?.text || "";
+                      navigator.clipboard.writeText(text).catch(() => {});
+                    }}
+                  >
+                    <Copy className="size-3.5" /> Copy
+                  </button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* Expanded overlay */}
+        {expandedId && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="relative w-full max-w-4xl max-h-[85vh] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium truncate" title={expandedId}>
+                  {modelsById[expandedId]?.name || expandedId}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                    onClick={() => {
+                      const c = controllersRef.current[expandedId];
+                      c?.abort();
+                      setPanes((p) => ({ ...p, [expandedId]: { ...(p[expandedId] || { text: "" }), running: false } }));
+                    }}
+                    disabled={!panes[expandedId]?.running}
+                  >
+                    <Square className="size-3.5" /> Stop
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                    onClick={() => {
+                      const text = panes[expandedId]?.text || "";
+                      navigator.clipboard.writeText(text).catch(() => {});
+                    }}
+                  >
+                    <Copy className="size-3.5" /> Copy
+                  </button>
+                  <button
+                    className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                    aria-label="Close"
+                    onClick={() => setExpandedId(null)}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-auto max-h-[60vh] whitespace-pre-wrap text-sm pr-1">
+                {panes[expandedId]?.text}
+                {panes[expandedId]?.running && <span className="opacity-60">▌</span>}
+              </div>
+              {panes[expandedId]?.error && (
+                <p className="text-sm text-red-400 mt-2">{panes[expandedId]?.error}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <footer className="mt-10 mb-6 text-xs opacity-70 text-center">
+          Powered by OpenRouter. API key stored locally. No server.
+        </footer>
+      </div>
     </div>
   );
 }
