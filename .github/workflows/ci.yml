@@ -19,11 +19,14 @@ concurrency:
 
 jobs:
   lint_and_types:
-    name: Lint and Typecheck
+    name: pnpm lint & typecheck
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Setup Node (from .nvmrc)
         uses: actions/setup-node@v4
