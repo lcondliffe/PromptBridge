@@ -58,6 +58,16 @@ export default function Home() {
     1024
   );
 
+  // Prompt options
+  const [limitWordsEnabled, setLimitWordsEnabled] = useLocalStorage<boolean>(
+    "limit_words_enabled",
+    false
+  );
+  const [limitWords, setLimitWords] = useLocalStorage<number>(
+    "limit_words",
+    200
+  );
+
   // Responses state
   type Pane = {
     text: string;
@@ -130,7 +140,7 @@ export default function Home() {
     };
   }, [apiKey, selectedModels.length, setSelectedModels, summarizerModel, setSummarizerModel, popularDefaults]);
 
-  const onSend = async (prompt: string) => {
+  const onSend = async (inputPrompt: string) => {
     if (!apiKey) {
       alert("Please set your OpenRouter API key first.");
       return;
@@ -139,6 +149,15 @@ export default function Home() {
       alert("Select at least one model.");
       return;
     }
+
+    // Apply prompt options
+    const options: string[] = [];
+    if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
+      options.push(`Please limit your answer to at most ${limitWords} words.`);
+    }
+    const finalPrompt = options.length
+      ? `${inputPrompt}\n\nConstraints:\n- ${options.join("\n- ")}`
+      : inputPrompt;
 
     // Reset panes
     const initial: Record<string, Pane> = {};
@@ -152,7 +171,7 @@ export default function Home() {
         content:
           "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.",
       },
-      { role: "user", content: prompt },
+      { role: "user", content: finalPrompt },
     ];
 
     for (const model of selectedModels) {
@@ -418,6 +437,31 @@ Be concise but comprehensive.`;
                 <Send className="size-4" /> Send
               </button>
             </form>
+            {/* Prompt options */}
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={limitWordsEnabled}
+                  onChange={(e) => setLimitWordsEnabled(e.target.checked)}
+                />
+                Limit words
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-sm opacity-80" htmlFor="limit-words-input">Max</label>
+                <input
+                  id="limit-words-input"
+                  type="number"
+                  min={10}
+                  step={10}
+                  className="px-2 py-1 rounded-md border border-white/10 bg-black/20 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                  value={limitWords}
+                  onChange={(e) => setLimitWords(parseInt(e.target.value || "0", 10))}
+                  disabled={!limitWordsEnabled}
+                />
+                <span className="text-sm opacity-80">words</span>
+              </div>
+            </div>
           </div>
         </section>
 
