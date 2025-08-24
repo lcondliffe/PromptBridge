@@ -25,7 +25,7 @@ pnpm dev
 Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 In the UI:
-- Click “Set API Key” and paste your OpenRouter API key (stored in localStorage)
+- Open the sidebar (burger) and navigate to Settings. Paste your OpenRouter API key (stored in localStorage).
 - Choose one or more models
 - Type a prompt and press Enter or click Send
 - Optionally adjust advanced sampling (temperature, top-p, etc.)
