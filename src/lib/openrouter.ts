@@ -4,12 +4,14 @@ import { log } from './logger';
 const BASE_URL = 'https://openrouter.ai/api/v1';
 
 function defaultHeaders(apiKey: string): HeadersInit {
+  const trimmed = (apiKey ?? '').trim();
   return {
-    'Authorization': `Bearer ${apiKey}`,
+    'Authorization': `Bearer ${trimmed}`,
+    'X-API-Key': trimmed,
     'Content-Type': 'application/json',
     // OpenRouter recommends setting these to identify your app
     'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
-'X-Title': 'PromptBridge',
+    'X-Title': 'PromptBridge',
   } as HeadersInit;
 }
 
@@ -95,23 +97,29 @@ export function streamChat(
           : [];
         const { messages: _omit, ...rest } = body as Record<string, unknown>;
         const sanitized = { ...rest, messages_preview: preview };
-        log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions` });
+        const hasAuth = Boolean((apiKey ?? '').trim());
+        log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions`, hasAuth });
       }
+
+      const headersObj = defaultHeaders(apiKey) as HeadersInit;
+      const headers = new Headers(headersObj);
+      headers.set('Accept', 'text/event-stream');
 
       const res = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
-        headers: defaultHeaders(apiKey),
+        headers,
         body: JSON.stringify(body),
         signal: abortController.signal,
+        mode: 'cors',
       });
       if (debug) {
         const headerKeys = ['x-request-id','openrouter-request-id','openrouter-model','openrouter-provider','content-type'];
-        const headers: Record<string, string> = {};
+        const respHeaders: Record<string, string> = {};
         headerKeys.forEach((k) => {
           const v = (res.headers.get(k) || '') as string;
-          if (v) headers[k] = v;
+          if (v) respHeaders[k] = v;
         });
-        log('info','chat','response',{ traceId, status: res.status, statusText: res.statusText, headers });
+        log('info','chat','response',{ traceId, status: res.status, statusText: res.statusText, headers: respHeaders });
       }
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => '');

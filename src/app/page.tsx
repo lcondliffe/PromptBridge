@@ -1,40 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Image from "next/image";
-import { Key, Send, Square, Copy, Maximize2, X } from "lucide-react";
+import { Send, Square, Copy, Maximize2, X } from "lucide-react";
 import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
 
-function useLocalStorage<T>(key: string, initial: T) {
-  // Start with the provided initial value on both server and first client render
-  // to avoid SSR/client hydration mismatches. Read localStorage after mount.
-  const [value, setValue] = useState<T>(initial);
-  const hydratedRef = useRef(false);
+import useLocalStorage from "@/lib/useLocalStorage";
+import { useApiKey } from "@/lib/apiKey";
 
-  // Load from localStorage after mount
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (raw !== null) {
-        setValue(JSON.parse(raw) as T);
-      }
-    } catch {}
-    hydratedRef.current = true;
-  }, [key]);
-
-  // Persist to localStorage only after we've attempted to read existing value
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch {}
-  }, [key, value]);
-
-  return [value, setValue] as const;
-}
-
-// Lightweight tooltip component to provide hover/focus explanations
+// Lightweight tooltip component
 function Tip({ text, children }: { text: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -57,9 +31,8 @@ function Tip({ text, children }: { text: string; children: ReactNode }) {
 }
 
 export default function Home() {
-  // API key handling
-  const [apiKey, setApiKey] = useLocalStorage<string>("openrouter_api_key", "");
-  const [showKey, setShowKey] = useState(false);
+// API key handling (shared across app)
+  const { apiKey } = useApiKey();
 
   // Models
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -200,7 +173,7 @@ export default function Home() {
   const [uiError, setUiError] = useState<string>("");
 
   const onSend = async (inputPrompt: string) => {
-    if (!apiKey) {
+    if (!apiKey || apiKey.trim().length === 0) {
       setUiError("Please set your OpenRouter API key first.");
       return;
     }
@@ -368,46 +341,6 @@ export default function Home() {
             <button className="px-2 py-1 text-xs rounded-md border border-white/10 hover:bg-white/10" onClick={() => setUiError("")}>Dismiss</button>
           </div>
         )}
-        {/* Sticky header */}
-        <header className="sticky top-0 z-50 -mx-4 sm:-mx-6 md:-mx-8 bg-gradient-to-b from-zinc-950/70 to-zinc-900/40 backdrop-blur-md border-b border-white/10">
-          <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="shrink-0 rounded-xl overflow-hidden border border-white/10 bg-white/10">
-                <Image src="/logo.webp" width={48} height={48} alt="PromptBridge logo" priority />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">PromptBridge</h1>
-                <p className="text-sm opacity-80">Prompt multiple models side-by-side.</p>
-              </div>
-            </div>
-            <div className="w-full sm:w-auto">
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium leading-5 whitespace-nowrap bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98]"
-                onClick={() => setShowKey((v) => !v)}
-                aria-haspopup="dialog"
-                aria-expanded={showKey}
-                aria-controls="api-key-panel"
-              >
-                <Key className="size-4" /> {apiKey ? "Update API Key" : "Set API Key"}
-              </button>
-              {showKey && (
-                <div id="api-key-panel" className="mt-3 w-full sm:w-[360px] rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg p-3">
-                  <label className="block text-xs opacity-80 mb-1">OpenRouter API Key</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="password"
-                      placeholder="sk-or-..."
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="flex-1 px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
-                    />
-                    <span className="text-[10px] opacity-70">Stored locally</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
 
         {/* Controls row */}
         <section className="mb-6">
