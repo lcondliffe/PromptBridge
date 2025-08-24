@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { NavItem } from "@/lib/nav";
@@ -50,7 +50,7 @@ return (
           <nav className="flex flex-col gap-1">
             {items.map((item, idx) => {
               const active = pathname === item.href;
-              const Icon = item.icon as any;
+              const Icon: ComponentType<{ className?: string }> | undefined = item.icon;
               return (
                 <Link
                   key={item.key}
@@ -100,7 +100,7 @@ return (
             <nav className="flex flex-col gap-1">
               {items.map((item, idx) => {
                 const active = pathname === item.href;
-                const Icon = item.icon as any;
+                const Icon: ComponentType<{ className?: string }> | undefined = item.icon;
                 return (
                   <Link
                     key={item.key}
