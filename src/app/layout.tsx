@@ -34,7 +34,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Client shell wraps header, sidebar and main */}
-        {/* @ts-expect-error Server Component importing Client Component below is allowed in Next app dir */}
         <ClientShell>{children}</ClientShell>
       </body>
     </html>
