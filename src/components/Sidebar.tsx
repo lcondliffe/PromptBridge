@@ -38,7 +38,7 @@ export default function Sidebar({ items, open, setOpen, desktopCollapsed, setDes
   // Desktop width
   const desktopWidth = desktopCollapsed ? 64 : 232;
 
-  return (
+return (
     <>
       {/* Desktop sidebar */}
       <aside
@@ -55,25 +55,25 @@ export default function Sidebar({ items, open, setOpen, desktopCollapsed, setDes
                 <Link
                   key={item.key}
                   href={item.href}
-                  className={`flex items-center gap-2 rounded-lg px-2 py-2 border border-transparent hover:border-white/10 ${active ? "bg-white/10" : "bg-white/0"}`}
+                  className={`flex items-center gap-2 rounded-lg border border-transparent hover:border-white/10 h-10 ${active ? "bg-white/10" : "bg-white/0"} ${desktopCollapsed ? "justify-center w-10 px-0" : "px-2"}`}
                   ref={idx === 0 ? firstLinkRef : undefined}
                 >
-                  {Icon && <Icon className="size-4 opacity-90" />}
+                  {Icon && <Icon className="size-5 opacity-90" />}
                   {!desktopCollapsed && <span className="text-sm">{item.label}</span>}
                 </Link>
               );
             })}
           </nav>
           <button
-            className="mt-4 inline-flex items-center justify-center rounded-md border border-white/15 bg-white/5 hover:bg-white/10 p-2"
+            className="mt-4 inline-flex items-center justify-center rounded-md border border-white/15 bg-white/5 hover:bg-white/10 h-10 w-10 p-0"
             onClick={() => setDesktopCollapsed(!desktopCollapsed)}
             aria-label={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {desktopCollapsed ? (
-              <ChevronsRight className="size-4" />
+              <ChevronsRight className="size-5" />
             ) : (
-              <ChevronsLeft className="size-4" />
+              <ChevronsLeft className="size-5" />
             )}
           </button>
         </div>
@@ -105,11 +105,11 @@ export default function Sidebar({ items, open, setOpen, desktopCollapsed, setDes
                   <Link
                     key={item.key}
                     href={item.href}
-                    className={`flex items-center gap-2 rounded-lg px-2 py-2 border border-transparent hover:border-white/10 ${active ? "bg-white/10" : "bg-white/0"}`}
+                    className={`flex items-center gap-2 rounded-lg border border-transparent hover:border-white/10 h-10 px-2 ${active ? "bg-white/10" : "bg-white/0"}`}
                     onClick={() => setOpen(false)}
                     ref={idx === 0 ? firstLinkRef : undefined}
                   >
-                    {Icon && <Icon className="size-4 opacity-90" />}
+                    {Icon && <Icon className="size-5 opacity-90" />}
                     <span className="text-sm">{item.label}</span>
                   </Link>
                 );
