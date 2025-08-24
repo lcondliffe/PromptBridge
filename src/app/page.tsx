@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
 import { Send, Square, Copy, Maximize2, X } from "lucide-react";
 import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
@@ -29,6 +29,10 @@ function Tip({ text, children }: { text: string; children: ReactNode }) {
     </div>
   );
 }
+
+// Cache keys and TTLs at module scope to avoid effect deps noise
+const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
+const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 export default function Home() {
 // API key handling (shared across app)
@@ -109,11 +113,9 @@ export default function Home() {
   ];
 
   // Cache & fetch models (once per apiKey), with localStorage TTL
-  const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
-  const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
   const lastModelsApiKeyRef = useRef<string | null>(null);
 
-  function maybeInitSelections(list: ModelInfo[]) {
+  const maybeInitSelections = useCallback((list: ModelInfo[]) => {
     try {
       const storedSel = window.localStorage.getItem("selected_models");
       const ids = list.map((m) => m.id);
@@ -122,7 +124,7 @@ export default function Home() {
         if (picks.length > 0) setSelectedModels(picks);
       }
     } catch {}
-  }
+  }, [setSelectedModels]);
 
   useEffect(() => {
     if (!apiKey) return;
@@ -168,7 +170,7 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, [apiKey]);
+  }, [apiKey, maybeInitSelections, models.length]);
 
   const [uiError, setUiError] = useState<string>("");
 
