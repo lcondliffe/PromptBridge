@@ -871,9 +871,10 @@ export default function Home() {
                   <button
                     className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
                     onClick={() => {
-                      const c = controllersRef.current[expandedId];
+                      const id = expandedId as string;
+                      const c = controllersRef.current[id];
                       c?.abort();
-                      setPanes((p) => ({ ...p, [expandedId]: { ...(p[expandedId] || { text: "" }), running: false } }));
+                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
                     }}
                     disabled={!panes[expandedId]?.running}
                   >
@@ -882,7 +883,8 @@ export default function Home() {
                   <button
                     className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
                     onClick={() => {
-                      const text = panes[expandedId]?.text || "";
+                      const id = expandedId as string;
+                      const text = toCopyString(id);
                       navigator.clipboard.writeText(text).catch(() => {});
                     }}
                   >
