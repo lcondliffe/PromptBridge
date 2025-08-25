@@ -75,9 +75,13 @@ export default function Home() {
     200
   );
 
-  // Responses state
+  // Conversations and streaming state
+  const [conversations, setConversations] = useLocalStorage<Record<string, ChatMessage[]>>(
+    "conversations_v1",
+    {}
+  );
   type Pane = {
-    text: string;
+    draft: string;
     error?: string;
     running: boolean;
   };
@@ -87,6 +91,8 @@ export default function Home() {
 
   // Expanded (maximized) result pane
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const anyRunning = useMemo(() => Object.values(panes).some((p) => p.running), [panes]);
 
   // Manage body scroll lock and Escape to close when expanded
   useEffect(() => {
@@ -102,6 +108,8 @@ export default function Home() {
       document.body.style.overflow = original;
     };
   }, [expandedId]);
+
+  const SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.";
 
   const popularDefaults = [
     "openai/gpt-4o-mini",
@@ -175,6 +183,7 @@ export default function Home() {
   const [uiError, setUiError] = useState<string>("");
 
   const onSend = async (inputPrompt: string) => {
+    if (anyRunning) return; // Disabled while any model is running
     if (!apiKey || apiKey.trim().length === 0) {
       setUiError("Please set your OpenRouter API key first.");
       return;
@@ -194,20 +203,10 @@ export default function Home() {
       ? `${inputPrompt}\n\nConstraints:\n- ${options.join("\n- ")}`
       : inputPrompt;
 
-    // Reset panes
+    // Initialize panes for selected models
     const initial: Record<string, Pane> = {};
-    for (const m of selectedModels) initial[m] = { text: "", running: true };
+    for (const m of selectedModels) initial[m] = { draft: "", running: true };
     setPanes(initial);
-
-    // Start streaming for each model
-    const baseMessages: ChatMessage[] = [
-      {
-        role: "system",
-        content:
-          "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.",
-      },
-      { role: "user", content: finalPrompt },
-    ];
 
     // Parse stop strings into array
     const stop = stopStr
@@ -215,13 +214,34 @@ export default function Home() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    // Prepare messages per model from current conversations snapshot
+    const msgsByModel: Record<string, ChatMessage[]> = {};
+    for (const model of selectedModels) {
+      const history = conversations[model] || [];
+      const msgs: ChatMessage[] = [];
+      if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+      msgs.push(...history, { role: 'user', content: finalPrompt });
+      msgsByModel[model] = msgs;
+    }
+
+    // Append the user message to all conversations (persist)
+    setConversations((prev) => {
+      const next = { ...prev } as Record<string, ChatMessage[]>;
+      for (const model of selectedModels) {
+        const arr = next[model] ? [...next[model]] : [];
+        arr.push({ role: 'user', content: finalPrompt });
+        next[model] = arr;
+      }
+      return next;
+    });
+
     const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     for (const model of selectedModels) {
       const handle = streamChat(
         {
           apiKey,
           model,
-          messages: baseMessages,
+          messages: msgsByModel[model],
           temperature,
           maxTokens,
           top_p: topP,
@@ -238,11 +258,25 @@ export default function Home() {
         },
         {
           onToken: (chunk) =>
-            setPanes((p) => ({ ...p, [model]: { ...(p[model] || { text: "" }), text: (p[model]?.text || "") + chunk, running: true } })),
-          onDone: () =>
-            setPanes((p) => ({ ...p, [model]: { ...(p[model] || { text: "" }), running: false } })),
+            setPanes((p) => ({
+              ...p,
+              [model]: { ...(p[model] || { draft: '' }), draft: (p[model]?.draft || '') + chunk, running: true },
+            })),
+          onDone: (full) => {
+            setConversations((prev) => {
+              const next = { ...prev } as Record<string, ChatMessage[]>;
+              const arr = next[model] ? [...next[model]] : [];
+              arr.push({ role: 'assistant', content: full || '' });
+              next[model] = arr;
+              return next;
+            });
+            setPanes((p) => ({ ...p, [model]: { ...(p[model] || { draft: '' }), running: false, draft: '' } }));
+          },
           onError: (err) =>
-            setPanes((p) => ({ ...p, [model]: { ...(p[model] || { text: "" }), running: false, error: err.message } })),
+            setPanes((p) => ({
+              ...p,
+              [model]: { ...(p[model] || { draft: '' }), running: false, draft: '', error: err.message },
+            })),
         }
       );
       controllersRef.current[model] = handle.abortController;
@@ -256,14 +290,24 @@ export default function Home() {
     controllersRef.current = {} as Record<string, AbortController>;
     setPanes((p) =>
       Object.fromEntries(
-        Object.entries(p).map(([k, v]) => [k, { ...v, running: false }])
+        Object.entries(p).map(([k, v]) => [k, { ...v, running: false, draft: "" }])
       ) as Record<string, Pane>
     );
+  };
+
+  const resetAll = () => {
+    const ok = window.confirm("Reset all chats? This will stop any running responses and clear all conversations.");
+    if (!ok) return;
+    stopAll();
+    controllersRef.current = {} as Record<string, AbortController>;
+    setConversations({});
+    setPanes({});
   };
 
 
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
 
   // Auto-resize the compose textarea as content grows/shrinks
   useEffect(() => {
@@ -328,6 +372,38 @@ export default function Home() {
     if (typeof max === "number" && n > max) return max;
     return n;
   }
+
+  // Build a copyable transcript string per model (includes partial draft if present)
+  const toCopyString = (modelId: string): string => {
+    const hist = conversations[modelId] || [];
+    const parts: string[] = hist.map((m) => `${m.role.toUpperCase()}: ${m.content}`);
+    const d = panes[modelId]?.draft || '';
+    if (panes[modelId]?.running && d) parts.push(`ASSISTANT (partial): ${d}`);
+    return parts.join("\n\n");
+  };
+
+  // Render transcript as chat bubbles, with a live draft bubble when streaming
+  const renderTranscript = (modelId: string) => {
+    const hist = conversations[modelId] || [];
+    return (
+      <div className="space-y-2 text-sm min-h-[140px]">
+        {hist.map((m, idx) => (
+          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
+              <div className="whitespace-pre-wrap">{m.content}</div>
+            </div>
+          </div>
+        ))}
+        {panes[modelId]?.running && (
+          <div className="flex justify-start">
+            <div className="max-w-full rounded-lg px-3 py-2 border border-white/10 bg-white/5">
+              <div className="whitespace-pre-wrap">{panes[modelId]?.draft || ''}<span className="opacity-60">▌</span></div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="relative min-h-screen text-zinc-100">
@@ -508,8 +584,9 @@ export default function Home() {
                 }}
               />
               <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] w-28 h-10 shrink-0"
+                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] w-28 h-10 shrink-0 disabled:opacity-50"
                 type="submit"
+                disabled={anyRunning}
               >
                 <Send className="size-4" /> Send
               </button>
@@ -520,6 +597,13 @@ export default function Home() {
                 disabled={Object.values(panes).every((p) => !p.running)}
               >
                 <Square className="size-4" /> Stop all
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium border border-red-400/30 bg-red-500/10 hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 transition-colors w-28 h-10 shrink-0"
+                type="button"
+                onClick={resetAll}
+              >
+                <X className="size-4" /> Reset all
               </button>
             </form>
             {/* Prompt options */}
@@ -644,7 +728,7 @@ export default function Home() {
         </section>
 
         {/* Results */}
-        {Object.keys(panes).length > 0 && (
+        {selectedModels.length > 0 && (
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {selectedModels.map((id) => (
               <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
@@ -663,9 +747,8 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                <div className="whitespace-pre-wrap text-sm min-h-[140px]">
-                  {panes[id]?.text}
-                  {panes[id]?.running && <span className="opacity-60">▌</span>}
+                <div className="max-h-[320px] overflow-auto pr-1">
+                  {renderTranscript(id)}
                 </div>
                 {panes[id]?.error && (
                   <p className="text-sm text-red-400 mt-2">{panes[id]?.error}</p>
@@ -676,7 +759,7 @@ export default function Home() {
                     onClick={() => {
                       const c = controllersRef.current[id];
                       c?.abort();
-                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { text: "" }), running: false } }));
+                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
                     }}
                     disabled={!panes[id]?.running}
                   >
@@ -685,11 +768,90 @@ export default function Home() {
                   <button
                     className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
                     onClick={() => {
-                      const text = panes[id]?.text || "";
+                      const text = toCopyString(id);
                       navigator.clipboard.writeText(text).catch(() => {});
                     }}
                   >
                     <Copy className="size-3.5" /> Copy
+                  </button>
+                </div>
+                <div className="mt-3 flex items-start gap-2">
+                  <textarea
+                    className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                    placeholder="Reply to this model…"
+                    value={replyInputs[id] || ''}
+                    onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
+                    disabled={anyRunning}
+                    rows={2}
+                  />
+                  <button
+                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                    type="button"
+                    onClick={() => {
+                      const text = (replyInputs[id] || '').trim();
+                      if (!text || anyRunning) return;
+                      const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+                      const history = conversations[id] || [];
+                      const msgs = [] as ChatMessage[];
+                      if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+                      const options: string[] = [];
+                      if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
+                        options.push(`Please limit your answer to at most ${limitWords} words.`);
+                      }
+                      const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
+                      msgs.push(...history, { role: 'user', content: finalText });
+                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
+                      setConversations((prev) => {
+                        const next = { ...prev } as Record<string, ChatMessage[]>;
+                        const arr = next[id] ? [...next[id]] : [];
+                        arr.push({ role: 'user', content: finalText });
+                        next[id] = arr;
+                        return next;
+                      });
+                      const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+                      const handle = streamChat(
+                        {
+                          apiKey,
+                          model: id,
+                          messages: msgs,
+                          temperature,
+                          maxTokens,
+                          top_p: topP,
+                          top_k: topK,
+                          frequency_penalty: freqPenalty,
+                          presence_penalty: presencePenalty,
+                          repetition_penalty: repetitionPenalty,
+                          min_p: minP,
+                          top_a: topA,
+                          seed,
+                          stop,
+                          debug: true,
+                          traceId,
+                        },
+                        {
+                          onToken: (chunk) =>
+                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
+                          onDone: (full) => {
+                            setConversations((prev) => {
+                              const next = { ...prev } as Record<string, ChatMessage[]>;
+                              const arr = next[id] ? [...next[id]] : [];
+                              arr.push({ role: 'assistant', content: full || '' });
+                              next[id] = arr;
+                              return next;
+                            });
+                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
+                          },
+                          onError: (err) =>
+                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
+                        }
+                      );
+                      controllersRef.current[id] = handle.abortController;
+                      handle.promise.catch(() => {});
+                      setReplyInputs((r) => ({ ...r, [id]: '' }));
+                    }}
+                    disabled={anyRunning || !(replyInputs[id] || '').trim()}
+                  >
+                    <Send className="size-3.5" /> Reply
                   </button>
                 </div>
               </div>
@@ -735,13 +897,92 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="overflow-auto max-h-[60vh] whitespace-pre-wrap text-sm pr-1">
-                {panes[expandedId]?.text}
-                {panes[expandedId]?.running && <span className="opacity-60">▌</span>}
+              <div className="overflow-auto max-h-[60vh] pr-1">
+                {renderTranscript(expandedId)}
               </div>
               {panes[expandedId]?.error && (
                 <p className="text-sm text-red-400 mt-2">{panes[expandedId]?.error}</p>
               )}
+              <div className="mt-3 flex items-start gap-2">
+                <textarea
+                  className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                  placeholder="Reply to this model…"
+                  value={replyInputs[expandedId] || ''}
+                  onChange={(e) => setReplyInputs((r) => ({ ...r, [expandedId]: e.target.value }))}
+                  disabled={anyRunning}
+                  rows={2}
+                />
+                <button
+                  className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                  type="button"
+                  onClick={() => {
+                    const id = expandedId as string;
+                    const text = (replyInputs[id] || '').trim();
+                    if (!text || anyRunning) return;
+                    const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+                    const history = conversations[id] || [];
+                    const msgs = [] as ChatMessage[];
+                    if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+                    const options: string[] = [];
+                    if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
+                      options.push(`Please limit your answer to at most ${limitWords} words.`);
+                    }
+                    const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
+                    msgs.push(...history, { role: 'user', content: finalText });
+                    setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
+                    setConversations((prev) => {
+                      const next = { ...prev } as Record<string, ChatMessage[]>;
+                      const arr = next[id] ? [...next[id]] : [];
+                      arr.push({ role: 'user', content: finalText });
+                      next[id] = arr;
+                      return next;
+                    });
+                    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+                    const handle = streamChat(
+                      {
+                        apiKey,
+                        model: id,
+                        messages: msgs,
+                        temperature,
+                        maxTokens,
+                        top_p: topP,
+                        top_k: topK,
+                        frequency_penalty: freqPenalty,
+                        presence_penalty: presencePenalty,
+                        repetition_penalty: repetitionPenalty,
+                        min_p: minP,
+                        top_a: topA,
+                        seed,
+                        stop,
+                        debug: true,
+                        traceId,
+                      },
+                      {
+                        onToken: (chunk) =>
+                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
+                        onDone: (full) => {
+                          setConversations((prev) => {
+                            const next = { ...prev } as Record<string, ChatMessage[]>;
+                            const arr = next[id] ? [...next[id]] : [];
+                            arr.push({ role: 'assistant', content: full || '' });
+                            next[id] = arr;
+                            return next;
+                          });
+                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
+                        },
+                        onError: (err) =>
+                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
+                      }
+                    );
+                    controllersRef.current[id] = handle.abortController;
+                    handle.promise.catch(() => {});
+                    setReplyInputs((r) => ({ ...r, [id]: '' }));
+                  }}
+                  disabled={anyRunning || !(replyInputs[expandedId] || '').trim()}
+                >
+                  <Send className="size-3.5" /> Reply
+                </button>
+              </div>
             </div>
           </div>
         )}
