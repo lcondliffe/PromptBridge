@@ -376,7 +376,12 @@ export default function Home() {
   // Build a copyable transcript string per model (includes partial draft if present)
   const toCopyString = (modelId: string): string => {
     const hist = conversations[modelId] || [];
-    const parts: string[] = hist.map((m) => `${m.role.toUpperCase()}: ${m.content}`);
+    const parts: string[] = [];
+    let skippedFirstUser = false;
+    for (const m of hist) {
+      if (m.role === 'user' && !skippedFirstUser) { skippedFirstUser = true; continue; }
+      parts.push(`${m.role.toUpperCase()}: ${m.content}`);
+    }
     const d = panes[modelId]?.draft || '';
     if (panes[modelId]?.running && d) parts.push(`ASSISTANT (partial): ${d}`);
     return parts.join("\n\n");
@@ -385,9 +390,14 @@ export default function Home() {
   // Render transcript as chat bubbles, with a live draft bubble when streaming
   const renderTranscript = (modelId: string) => {
     const hist = conversations[modelId] || [];
+    let skippedFirstUser = false;
+    const visible = hist.filter((m) => {
+      if (m.role === 'user' && !skippedFirstUser) { skippedFirstUser = true; return false; }
+      return true;
+    });
     return (
       <div className="space-y-2 text-sm min-h-[140px]">
-        {hist.map((m, idx) => (
+        {visible.map((m, idx) => (
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
               <div className="whitespace-pre-wrap">{m.content}</div>
