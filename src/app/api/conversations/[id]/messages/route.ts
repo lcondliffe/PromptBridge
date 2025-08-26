@@ -4,17 +4,18 @@ import { listMessages, createMessage } from "@promptbridge/api";
 
 export async function GET(
   _req: Request,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const items = await listMessages(ctx.params.id, session.user.id);
+  const { id } = await ctx.params;
+  const items = await listMessages(id, session.user.id);
   return NextResponse.json(items);
 }
 
 export async function POST(
   req: Request,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,7 +23,8 @@ export async function POST(
   if (!json || typeof json.role !== "string" || typeof json.content !== "string") {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
-  const msg = await createMessage(ctx.params.id, session.user.id, {
+  const { id } = await ctx.params;
+  const msg = await createMessage(id, session.user.id, {
     role: json.role,
     content: json.content,
     model: typeof json.model === "string" ? json.model : null,

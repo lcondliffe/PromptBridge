@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Role } from "@prisma/client";
 import { createUser, getUserByEmail, countUsers } from "@promptbridge/api";
 
 const schema = z.object({
@@ -21,7 +20,7 @@ export async function POST(req: Request) {
   }
   const existing = await getUserByEmail(email);
   if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 });
-  await createUser(email, password, { role: Role.ADMIN });
+  await createUser(email, password, { role: "ADMIN" });
   return NextResponse.json({ ok: true });
 }
 
