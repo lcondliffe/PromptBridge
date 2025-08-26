@@ -5,15 +5,26 @@
   "packageManager": "pnpm@10.15.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm prisma:generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "pnpm prisma:generate",
+    "prisma:generate": "prisma generate --schema packages/api/prisma/schema.prisma",
+    "prisma:db:push": "prisma db push --schema packages/api/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --name init --schema packages/api/prisma/schema.prisma",
+    "prisma:studio": "prisma studio --schema packages/api/prisma/schema.prisma"
   },
   "dependencies": {
     "lucide-react": "^0.541.0",
     "next": "15.5.0",
+    "next-auth": "^5.0.0-beta.29",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "zod": "^3.23.8",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "@promptbridge/api": "workspace:*",
+    "@promptbridge/sdk": "workspace:*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -24,7 +35,9 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "prisma": "^5.22.0",
+    "@types/bcryptjs": "^2.4.6"
   },
   "pnpm": {
     "overrides": {

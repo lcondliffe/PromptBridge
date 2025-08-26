@@ -111,28 +111,34 @@ export default function Home() {
 
   const SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.";
 
-  const popularDefaults = [
-    "openai/gpt-4o-mini",
-    "anthropic/claude-3.5-sonnet",
-    "deepseek/deepseek-r1",
-    "meta-llama/llama-3.1-70b-instruct",
-    "qwen/qwen2.5-72b-instruct",
-    "mistralai/mistral-large-2",
-  ];
+  const popularDefaults = useMemo(
+    () => [
+      "openai/gpt-4o-mini",
+      "anthropic/claude-3.5-sonnet",
+      "deepseek/deepseek-r1",
+      "meta-llama/llama-3.1-70b-instruct",
+      "qwen/qwen2.5-72b-instruct",
+      "mistralai/mistral-large-2",
+    ],
+    []
+  );
 
   // Cache & fetch models (once per apiKey), with localStorage TTL
   const lastModelsApiKeyRef = useRef<string | null>(null);
 
-  const maybeInitSelections = useCallback((list: ModelInfo[]) => {
-    try {
-      const storedSel = window.localStorage.getItem("selected_models");
-      const ids = list.map((m) => m.id);
-      if (!storedSel) {
-        const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
-        if (picks.length > 0) setSelectedModels(picks);
-      }
-    } catch {}
-  }, [setSelectedModels]);
+  const maybeInitSelections = useCallback(
+    (list: ModelInfo[]) => {
+      try {
+        const storedSel = window.localStorage.getItem("selected_models");
+        const ids = list.map((m) => m.id);
+        if (!storedSel) {
+          const picks = popularDefaults.filter((id) => ids.includes(id)).slice(0, 4);
+          if (picks.length > 0) setSelectedModels(picks);
+        }
+      } catch {}
+    },
+    [setSelectedModels, popularDefaults]
+  );
 
   useEffect(() => {
     if (!apiKey) return;

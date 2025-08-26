@@ -6,6 +6,8 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { navItems } from "@/lib/nav";
 import { ApiKeyProvider } from "@/lib/apiKey";
+import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 const SidebarCtx = createContext<{ open: boolean; setOpen: (v: boolean) => void; desktopCollapsed: boolean; setDesktopCollapsed: (v: boolean) => void } | null>(null);
 
@@ -18,6 +20,24 @@ export function useSidebar() {
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useLocalStorage<boolean>("sidebar_open", false);
   const [desktopCollapsed, setDesktopCollapsed] = useLocalStorage<boolean>("sidebar_collapsed", false);
+  const pathname = usePathname();
+
+  // Minimal chrome for auth pages (/login)
+  if (pathname === "/login") {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-zinc-100 flex flex-col items-center">
+        <header className="w-full flex justify-center py-6">
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 rounded-xl overflow-hidden border border-white/10 bg-white/10">
+              <Image src="/logo.webp" width={40} height={40} alt="PromptBridge logo" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">PromptBridge</h1>
+          </div>
+        </header>
+        <main className="w-full max-w-sm px-6 pb-8">{children}</main>
+      </div>
+    );
+  }
 
   return (
     <SidebarCtx.Provider value={{ open, setOpen, desktopCollapsed, setDesktopCollapsed }}>
