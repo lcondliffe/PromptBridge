@@ -45,22 +45,21 @@ export const {
         if (!user) return null;
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
-        return { id: user.id, email: user.email } as any;
+        return { id: user.id, email: user.email };
       },
     }),
   ],
   session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        // Embed user id into token.sub to be available during session
-        token.sub = (user as any).id || token.sub;
+      if (user && typeof (user as Record<string, unknown>).id === "string") {
+        token.sub = (user as Record<string, string>).id;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.sub) {
-        (session.user as any).id = token.sub;
+        session.user.id = token.sub;
       }
       return session;
     },
