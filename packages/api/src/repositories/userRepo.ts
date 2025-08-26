@@ -1,5 +1,4 @@
 import { prisma } from "../db";
-import type { Prisma } from "@prisma/client";
 import { compare, hash } from "bcryptjs";
 
 export async function getUserByEmail(email: string) {
@@ -16,12 +15,10 @@ export async function createUser(
   opts?: { role?: "ADMIN" | "USER" }
 ) {
   const passwordHash = await hash(password, 10);
-  // Base create input (role will be injected dynamically to avoid type coupling in CI)
-  let data = { email, passwordHash } as unknown as Prisma.UserCreateInput;
-  if (opts?.role) {
-    (data as unknown as Record<string, unknown>).role = opts.role;
-  }
-  return prisma.user.create({ data });
+  // Build args without depending on generated Prisma field types
+  const data = { email, passwordHash } as Record<string, unknown>;
+  if (opts?.role) data.role = opts.role;
+  return prisma.user.create({ data } as Parameters<typeof prisma.user.create>[0]);
 }
 
 export async function verifyPassword(password: string, passwordHash: string) {
