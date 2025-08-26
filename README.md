@@ -19,6 +19,9 @@ Prerequisites:
 First, run the development server:
 
 ```bash
+pnpm install
+cp .env.example .env
+# Set NEXTAUTH_SECRET and DATABASE_URL
 pnpm dev
 ```
 
@@ -38,6 +41,35 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ---
 
+## New: API, Auth, and Persistence
+
+- API is implemented via Next.js Route Handlers at `src/app/api/*` and all DB access is isolated in `packages/api` (repository/service layer with Prisma).
+- A first-party internal SDK lives at `packages/sdk` and is used by the frontend; it speaks to `/api` in dev and can be pointed to a split base via `NEXT_PUBLIC_API_BASE_URL`.
+- Authentication uses NextAuth (Credentials provider) with a simple email/password flow. The app is gated by middleware; public routes: `/login`, `/register`, `/api/auth/*`, `/api/health`.
+- Persistence is Postgres via Prisma with the following models: `User`, `Conversation`, `Message`.
+
+Local setup:
+
+```bash
+# Start Postgres
+docker compose up -d db
+
+# Install deps and push schema
+pnpm install
+cp .env.example .env
+# Edit .env to set NEXTAUTH_SECRET (random string)
+
+# Create DB schema (no data loss in dev):
+pnpm prisma:db:push
+
+# Run app
+pnpm dev
+```
+
+Quick test:
+- Visit `/register` to create an account, then log in.
+- Visit `/sessions` to create and list persistent sessions.
+
 ## Container build and run
 
 This repo includes a Dockerfile that produces a slim, standalone Next.js server image.
@@ -51,7 +83,12 @@ docker build -t promptbridge:local .
 Run locally:
 
 ```bash
-docker run --rm -p 3000:3000 promptbridge:local
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/promptbridge \
+  -e NEXTAUTH_SECRET=replace-me \
+  -e NEXTAUTH_URL=http://localhost:3000 \
+  -e NEXT_PUBLIC_API_BASE_URL=/api \
+  promptbridge:local
 ```
 
 Open http://localhost:3000 and set your OpenRouter API key in the UI. No server-side secrets are required.
@@ -59,3 +96,4 @@ Open http://localhost:3000 and set your OpenRouter API key in the UI. No server-
 Notes:
 - The image uses Node 20 (Debian bookworm-slim) and runs as a non-root user.
 - The build leverages Next.js `output: 'standalone'` to keep runtime small.
+- For local DB, run `docker compose up -d db`.

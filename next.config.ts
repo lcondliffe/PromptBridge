@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Produce a minimal standalone server output for Docker runtime
   output: "standalone",
+  // Transpile local workspace packages when imported
+  transpilePackages: ["@promptbridge/sdk", "@promptbridge/api"],
   // Lint is run separately in CI; don't fail prod builds on lint
   eslint: {
     ignoreDuringBuilds: true,
