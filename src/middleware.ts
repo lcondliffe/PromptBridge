@@ -1,9 +1,35 @@
-export { auth as middleware } from "@/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { auth } from "@/auth";
 
-// Protect everything by default except explicit public paths
+export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Public page path(s)
+  const isPublicPage = pathname === "/login";
+
+  // Public API endpoints (pre-auth)
+  const isPublicApi =
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/health") ||
+    pathname.startsWith("/api/status") ||
+    pathname.startsWith("/api/register");
+
+  if (isPublicPage || isPublicApi) return NextResponse.next();
+
+  const session = await auth();
+  if (!session?.user) {
+    const url = new URL("/login", req.nextUrl.origin);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+// Run middleware on everything except static assets and file requests.
 export const config = {
   matcher: [
-    "/((?!api/auth|api/health|login|register|_next/static|_next/image|favicon.ico|public|.*\\..*).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };
 

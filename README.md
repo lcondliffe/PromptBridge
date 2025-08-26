@@ -45,7 +45,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 - API is implemented via Next.js Route Handlers at `src/app/api/*` and all DB access is isolated in `packages/api` (repository/service layer with Prisma).
 - A first-party internal SDK lives at `packages/sdk` and is used by the frontend; it speaks to `/api` in dev and can be pointed to a split base via `NEXT_PUBLIC_API_BASE_URL`.
-- Authentication uses NextAuth (Credentials provider) with a simple email/password flow. The app is gated by middleware; public routes: `/login`, `/register`, `/api/auth/*`, `/api/health`.
+- Authentication uses NextAuth (Credentials provider) with a simple email/password flow. The app is gated by middleware; public routes: `/login`, `/api/auth/*`, `/api/health`, `/api/status`, and `/api/register` (only to allow first-run admin creation).
 - Persistence is Postgres via Prisma with the following models: `User`, `Conversation`, `Message`.
 
 Local setup:
@@ -67,8 +67,8 @@ pnpm dev
 ```
 
 Quick test:
-- Visit `/register` to create an account, then log in.
-- Visit `/sessions` to create and list persistent sessions.
+- Visit `/login`. If no users exist, you'll be prompted to create the initial admin. Otherwise, sign in.
+- After signing in, visit `/sessions` to create and list persistent sessions.
 
 ## Container build and run
 
