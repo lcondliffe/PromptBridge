@@ -22,8 +22,9 @@ export default function RegisterPage() {
       const res = await signIn("credentials", { email, password, redirect: false });
       if (res?.error) throw new Error(res.error);
       router.push("/");
-    } catch (e: any) {
-      setError(e?.message || "Registration failed");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Registration failed";
+      setError(message);
     } finally {
       setLoading(false);
     }

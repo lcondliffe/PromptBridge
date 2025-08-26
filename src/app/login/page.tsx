@@ -39,8 +39,9 @@ export default function LoginPage() {
           const t = await res.text();
           throw new Error(t || "Failed to create admin");
         }
-      } catch (e: any) {
-        setError(e?.message || "Failed to create admin user");
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Failed to create admin user";
+        setError(message);
         setLoading(false);
         return;
       }

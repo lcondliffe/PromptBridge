@@ -10,7 +10,7 @@ export async function GET() {
   if (!session?.user?.email || !session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const userId = (session.user as any).id || session.user.email; // prefer id
+  const userId = session.user.id;
   const items = await listConversationsByUserId(userId);
   return NextResponse.json(items);
 }
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const json = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const conv = await createConversationForUser(session.user.id as string, parsed.data.title);
+  const conv = await createConversationForUser(session.user.id, parsed.data.title);
   return NextResponse.json(conv, { status: 201 });
 }
 

@@ -95,7 +95,8 @@ export function streamChat(
         const preview = Array.isArray(messages)
           ? messages.map((m) => ({ role: m.role, len: (m.content || '').length })).slice(-3)
           : [];
-        const { messages: _omit, ...rest } = body as Record<string, unknown>;
+        const { messages, ...rest } = body as Record<string, unknown>;
+        void messages; // mark as used to satisfy lint
         const sanitized = { ...rest, messages_preview: preview };
         const hasAuth = Boolean((apiKey ?? '').trim());
         log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions`, hasAuth });

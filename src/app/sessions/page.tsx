@@ -13,8 +13,9 @@ export default function SessionsPage() {
     try {
       const data = await sdk.conversations.list();
       setItems(data);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to load";
+      setError(message);
     }
   }
 
@@ -30,8 +31,9 @@ export default function SessionsPage() {
       const conv = await sdk.conversations.create(title || "Untitled");
       setTitle("");
       setItems((prev) => [conv, ...prev]);
-    } catch (e: any) {
-      setError(e?.message || "Failed to create");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to create";
+      setError(message);
     } finally {
       setLoading(false);
     }

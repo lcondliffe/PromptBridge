@@ -9,9 +9,9 @@ export async function DELETE(
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    await deleteConversation(ctx.params.id, session.user.id as string);
+    await deleteConversation(ctx.params.id, session.user.id);
     return NextResponse.json({ ok: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 }
