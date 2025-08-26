@@ -14,7 +14,8 @@ COPY packages/api/package.json ./packages/api/package.json
 COPY packages/sdk/package.json ./packages/sdk/package.json
 
 # Install deps (respects pnpm-lock.yaml)
-RUN pnpm install --frozen-lockfile
+# Skip lifecycle scripts here because schema files are not yet copied
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # --- Builder stage: build Next.js app ---
 FROM node:20-bookworm-slim AS builder
