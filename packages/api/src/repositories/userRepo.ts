@@ -16,13 +16,11 @@ export async function createUser(
   opts?: { role?: "ADMIN" | "USER" }
 ) {
   const passwordHash = await hash(password, 10);
-  const data: Prisma.UserCreateInput = {
-    email,
-    passwordHash,
-    ...(opts?.role
-      ? { role: opts.role as unknown as Prisma.UserCreateInput["role"] }
-      : {}),
-  };
+  // Base create input (role will be injected dynamically to avoid type coupling in CI)
+  let data = { email, passwordHash } as unknown as Prisma.UserCreateInput;
+  if (opts?.role) {
+    (data as unknown as Record<string, unknown>).role = opts.role;
+  }
   return prisma.user.create({ data });
 }
 
