@@ -1,4 +1,5 @@
 import { prisma } from "../db";
+import type { Prisma } from "@prisma/client";
 import { compare, hash } from "bcryptjs";
 
 export async function getUserByEmail(email: string) {
@@ -15,9 +16,13 @@ export async function createUser(
   opts?: { role?: "ADMIN" | "USER" }
 ) {
   const passwordHash = await hash(password, 10);
-  // Use a relaxed type here to avoid coupling to generated client enum at typecheck time
-  const data: any = { email, passwordHash };
-  if (opts?.role) data.role = opts.role;
+  const data: Prisma.UserCreateInput = {
+    email,
+    passwordHash,
+    ...(opts?.role
+      ? { role: opts.role as unknown as Prisma.UserCreateInput["role"] }
+      : {}),
+  };
   return prisma.user.create({ data });
 }
 

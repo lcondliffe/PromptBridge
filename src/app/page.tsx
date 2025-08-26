@@ -111,14 +111,17 @@ export default function Home() {
 
   const SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.";
 
-  const popularDefaults = [
-    "openai/gpt-4o-mini",
-    "anthropic/claude-3.5-sonnet",
-    "deepseek/deepseek-r1",
-    "meta-llama/llama-3.1-70b-instruct",
-    "qwen/qwen2.5-72b-instruct",
-    "mistralai/mistral-large-2",
-  ];
+  const popularDefaults = useMemo(
+    () => [
+      "openai/gpt-4o-mini",
+      "anthropic/claude-3.5-sonnet",
+      "deepseek/deepseek-r1",
+      "meta-llama/llama-3.1-70b-instruct",
+      "qwen/qwen2.5-72b-instruct",
+      "mistralai/mistral-large-2",
+    ],
+    []
+  );
 
   // Cache & fetch models (once per apiKey), with localStorage TTL
   const lastModelsApiKeyRef = useRef<string | null>(null);
