@@ -22,7 +22,9 @@
     "bcryptjs": "^2.4.3",
     "zod": "^3.23.8",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "@promptbridge/api": "workspace:*",
+    "@promptbridge/sdk": "workspace:*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -34,7 +36,8 @@
     "eslint-config-next": "15.5.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "@types/bcryptjs": "^2.4.6"
   },
   "pnpm": {
     "overrides": {

@@ -4,12 +4,13 @@ import { deleteConversation } from "@promptbridge/api";
 
 export async function DELETE(
   _req: Request,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await ctx.params;
   try {
-    await deleteConversation(ctx.params.id, session.user.id);
+    await deleteConversation(id, session.user.id);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

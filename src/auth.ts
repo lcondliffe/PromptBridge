@@ -14,23 +14,6 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
-  // Restrict what’s accessible before login via middleware's authorized callback
-  authorized({ request, auth }) {
-    const { pathname } = request.nextUrl;
-    // Public pages
-    if (pathname === "/login") return true;
-    // Public API endpoints for auth and health/status/initial registration only
-    if (
-      pathname.startsWith("/api/auth") ||
-      pathname.startsWith("/api/health") ||
-      pathname.startsWith("/api/status") ||
-      pathname.startsWith("/api/register")
-    ) {
-      return true;
-    }
-    // Everything else requires an authenticated user
-    return !!auth?.user;
-  },
   providers: [
     Credentials({
       credentials: {
