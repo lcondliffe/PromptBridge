@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: promptbridge-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: promptbridge
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d promptbridge"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+    container_name: promptbridge-app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/promptbridge
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: change-me
+      NEXT_PUBLIC_API_BASE_URL: /api
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
+

@@ -8,7 +8,10 @@ WORKDIR /app
 RUN corepack enable
 
 # Copy only manifests to leverage Docker layer caching
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Also copy workspace package manifests
+COPY packages/api/package.json ./packages/api/package.json
+COPY packages/sdk/package.json ./packages/sdk/package.json
 
 # Install deps (respects pnpm-lock.yaml)
 RUN pnpm install --frozen-lockfile
@@ -25,6 +28,9 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Generate Prisma client before building
+RUN pnpm prisma:generate
 
 # Build Next.js (standalone server output)
 RUN pnpm build
