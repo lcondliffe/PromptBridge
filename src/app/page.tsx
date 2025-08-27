@@ -476,6 +476,25 @@ export default function Home() {
           <div className="inline-block w-fit max-w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
+              <div className="shrink-0 flex items-center gap-2">
+                <button
+                  className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                  onClick={() => setSelectedModels([])}
+                  disabled={selectedModels.length === 0}
+                >
+                  Clear all
+                </button>
+                <button
+                  className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                  onClick={() => {
+                    const ids = new Set(models.map((m) => m.id));
+                    const picks = popularDefaults.filter((id) => ids.has(id)).slice(0, 4);
+                    setSelectedModels(picks);
+                  }}
+                >
+                  Select defaults
+                </button>
+              </div>
             </div>
 
             {apiKey ? (
@@ -484,7 +503,7 @@ export default function Home() {
               ) : (
                 <>
                   {/* Selected chips row */}
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
                         <span>Selected ({selectedModels.length})</span>
@@ -511,25 +530,6 @@ export default function Home() {
                           ))}
                         </div>
                       )}
-                    </div>
-                    <div className="shrink-0 flex items-center gap-2">
-                      <button
-                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
-                        onClick={() => setSelectedModels([])}
-                        disabled={selectedModels.length === 0}
-                      >
-                        Clear all
-                      </button>
-                      <button
-                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
-                        onClick={() => {
-                          const ids = new Set(models.map((m) => m.id));
-                          const picks = popularDefaults.filter((id) => ids.has(id)).slice(0, 4);
-                          setSelectedModels(picks);
-                        }}
-                      >
-                        Select defaults
-                      </button>
                     </div>
                   </div>
 
