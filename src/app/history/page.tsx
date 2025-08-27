@@ -41,7 +41,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="w-full">
       <h1 className="text-xl font-semibold mb-4">Chat history</h1>
       {error && (
         <div role="alert" className="mb-3 rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 px-3 py-2">

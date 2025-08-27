@@ -23,14 +23,16 @@ export default function Markdown({ text }: { text: string }) {
     code: InlineCode as unknown as Components["code"],
   };
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[[rehypePrismPlus, { ignoreMissing: true }]]}
-      // ReactMarkdown escapes raw HTML by default (we're not adding rehype-raw)
-      components={mdComponents}
-    >
-      {text}
-    </ReactMarkdown>
+    <div className="leading-relaxed [&>p]:my-2 [&>h1]:mt-4 [&>h1]:mb-2 [&>h2]:mt-3 [&>h2]:mb-2 [&>ul]:my-2 [&>ol]:my-2 [&>ul]:pl-5 [&>ol]:pl-5 [&>ul]:list-disc [&>ol]:list-decimal [&_li]:my-1 [&_li>ul]:my-1 [&_li>ol]:my-1 [&_li>ul]:pl-5 [&_li>ol]:pl-5">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypePrismPlus, { ignoreMissing: true }]]}
+        // ReactMarkdown escapes raw HTML by default (we're not adding rehype-raw)
+        components={mdComponents}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
 }
 
