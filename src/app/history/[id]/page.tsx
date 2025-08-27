@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { sdk, type Conversation, type Message } from "@promptbridge/sdk";
 import { Trash2, ArrowLeft } from "lucide-react";
+import Markdown from "@/components/Markdown";
 
 export default function HistoryDetailPage() {
   const params = useParams<{ id: string }>();
@@ -92,7 +93,11 @@ export default function HistoryDetailPage() {
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+                  {m.role === 'assistant' ? (
+                    <Markdown text={m.content} />
+                  ) : (
+                    <div className="whitespace-pre-wrap">{m.content}</div>
+                  )}
                   {m.role === 'assistant' && m.model && (
                     <div className="mt-1 text-[10px] opacity-70">Model: {m.model}</div>
                   )}
