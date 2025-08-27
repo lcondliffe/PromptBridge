@@ -58,7 +58,7 @@ export default function HistoryDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="w-full">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link
@@ -91,7 +91,7 @@ export default function HistoryDetailPage() {
           <h1 className="text-lg font-semibold mb-3">{conversation?.title || "Conversation"}</h1>
           <div className="space-y-2 text-sm">
             {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={m.id} className="flex justify-start">
                 <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
                   {m.role === 'assistant' ? (
                     <Markdown text={m.content} />

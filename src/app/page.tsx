@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
-import { Send, Square, Copy, Maximize2, X } from "lucide-react";
+import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
@@ -9,6 +9,7 @@ import type { ChatMessage, ModelInfo } from "@/lib/types";
 import useLocalStorage from "@/lib/useLocalStorage";
 import { useApiKey } from "@/lib/apiKey";
 import Markdown from "@/components/Markdown";
+import VendorLogo from "@/components/VendorLogo";
 
 // Lightweight tooltip component
 function Tip({ text, children }: { text: string; children: ReactNode }) {
@@ -66,6 +67,11 @@ export default function Home() {
   const [topA, setTopA] = useLocalStorage<number | undefined>("top_a", undefined);
   const [seed, setSeed] = useLocalStorage<number | undefined>("seed", undefined);
   const [stopStr, setStopStr] = useLocalStorage<string>("stop_str", "");
+  // Layout for results: 'tiled' grid vs 'stacked' full-width list
+  const [resultsLayout, setResultsLayout] = useLocalStorage<'tiled' | 'stacked'>(
+    'results_layout',
+    'tiled'
+  );
 
   // Prompt options
   const [limitWordsEnabled, setLimitWordsEnabled] = useLocalStorage<boolean>(
@@ -94,6 +100,9 @@ export default function Home() {
   };
   const [panes, setPanes] = useState<Record<string, Pane>>({});
   const controllersRef = useRef<Record<string, AbortController>>({});
+  // Refs to the start of the streaming draft per model tile
+  const draftStartRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [scrollToStartIds, setScrollToStartIds] = useState<string[]>([]);
 
 
   // Expanded (maximized) result pane
@@ -220,6 +229,8 @@ export default function Home() {
     const initial: Record<string, Pane> = {};
     for (const m of selectedModels) initial[m] = { draft: "", running: true };
     setPanes(initial);
+    // After tiles render their new draft bubbles, scroll each to the start anchor
+    setScrollToStartIds(selectedModels);
 
     // Ensure a persisted conversation exists and persist the user message
     let convIdLocal = activeConversationId;
@@ -359,6 +370,30 @@ export default function Home() {
     return map;
   }, [models]);
 
+  // When requested, scroll model tiles to the start of their new streaming replies
+  useEffect(() => {
+    if (scrollToStartIds.length === 0) return;
+    for (const id of scrollToStartIds) {
+      const el = draftStartRefs.current[id];
+      try {
+        el?.scrollIntoView({ block: 'start' });
+      } catch {}
+    }
+    setScrollToStartIds([]);
+  }, [scrollToStartIds]);
+
+  // Helper to display model name without vendor prefix
+  const modelDisplayName = useCallback((id: string, model?: ModelInfo) => {
+    const nm = model?.name;
+    if (typeof nm === "string" && nm.length > 0) {
+      const idx = nm.indexOf(":");
+      if (idx >= 0) return nm.slice(idx + 1).trim();
+      return nm;
+    }
+    const slug = id.includes("/") ? id.split("/")[1] : id;
+    return slug.replace(/-/g, " ");
+  }, []);
+
   // Phase 1: Model selection helpers
   const [modelQuery, setModelQuery] = useLocalStorage<string>("model_query", "");
   const [modelSort, setModelSort] = useLocalStorage<"alpha" | "none">("model_sort", "alpha");
@@ -388,8 +423,9 @@ export default function Home() {
   const filteredCount = useMemo(() => filteredSortedModels.length, [filteredSortedModels]);
   // Collapse/expand model list
   const [modelListOpen, setModelListOpen] = useState(false);
+  const [manuallyClosed, setManuallyClosed] = useState(false);
   const isSearching = modelQuery.trim().length > 0;
-  const showModelList = modelListOpen || isSearching;
+  const showModelList = modelListOpen || (isSearching && !manuallyClosed);
 
   // Helpers to safely parse numeric inputs
   function safeNum(v: string, min?: number, max?: number): number | undefined {
@@ -445,14 +481,93 @@ export default function Home() {
           </div>
         ))}
         {panes[modelId]?.running && (
-          <div className="flex justify-start">
-            <div className="max-w-full rounded-lg px-3 py-2 border border-white/10 bg-white/5">
-              <div className="whitespace-pre-wrap">{panes[modelId]?.draft || ''}<span className="opacity-60">▌</span></div>
+          <>
+            <div ref={(el) => { draftStartRefs.current[modelId] = el; }} className="h-0" />
+            <div className="flex justify-start">
+              <div className="max-w-full rounded-lg px-3 py-2 border border-white/10 bg-white/5">
+                <div className="whitespace-pre-wrap">{panes[modelId]?.draft || ''}<span className="opacity-60">▌</span></div>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     );
+  };
+
+  // Send a reply for a given model (used by button click and Enter key)
+  const sendReply = async (id: string) => {
+    const text = (replyInputs[id] || '').trim();
+    if (!text || anyRunning) return;
+    const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const history = conversations[id] || [];
+    const msgs = [] as ChatMessage[];
+    if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+    const options: string[] = [];
+    if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
+      options.push(`Please limit your answer to at most ${limitWords} words.`);
+    }
+    const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
+    msgs.push(...history, { role: 'user', content: finalText });
+    setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
+    setConversations((prev) => {
+      const next = { ...prev } as Record<string, ChatMessage[]>;
+      const arr = next[id] ? [...next[id]] : [];
+      arr.push({ role: 'user', content: finalText });
+      next[id] = arr;
+      return next;
+    });
+    try {
+      const convId = activeConversationId;
+      if (convId) {
+        await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
+      }
+    } catch {}
+    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const handle = streamChat(
+      {
+        apiKey,
+        model: id,
+        messages: msgs,
+        temperature,
+        maxTokens,
+        top_p: topP,
+        top_k: topK,
+        frequency_penalty: freqPenalty,
+        presence_penalty: presencePenalty,
+        repetition_penalty: repetitionPenalty,
+        min_p: minP,
+        top_a: topA,
+        seed,
+        stop,
+        debug: true,
+        traceId,
+      },
+      {
+        onToken: (chunk) =>
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
+        onDone: (full) => {
+          setConversations((prev) => {
+            const next = { ...prev } as Record<string, ChatMessage[]>;
+            const arr = next[id] ? [...next[id]] : [];
+            arr.push({ role: 'assistant', content: full || '' });
+            next[id] = arr;
+            return next;
+          });
+          try {
+            const convId2 = activeConversationId;
+            if (convId2) {
+              void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
+            }
+          } catch {}
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
+        },
+        onError: (err) =>
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
+      }
+    );
+    controllersRef.current[id] = handle.abortController;
+    handle.promise.catch(() => {});
+    setReplyInputs((r) => ({ ...r, [id]: '' }));
   };
 
   return (
@@ -475,6 +590,25 @@ export default function Home() {
           <div className="inline-block w-fit max-w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-medium">Select models</h2>
+              <div className="shrink-0 flex items-center gap-2">
+                <button
+                  className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                  onClick={() => setSelectedModels([])}
+                  disabled={selectedModels.length === 0}
+                >
+                  Clear all
+                </button>
+                <button
+                  className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
+                  onClick={() => {
+                    const ids = new Set(models.map((m) => m.id));
+                    const picks = popularDefaults.filter((id) => ids.has(id)).slice(0, 4);
+                    setSelectedModels(picks);
+                  }}
+                >
+                  Select defaults
+                </button>
+              </div>
             </div>
 
             {apiKey ? (
@@ -483,7 +617,7 @@ export default function Home() {
               ) : (
                 <>
                   {/* Selected chips row */}
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
                         <span>Selected ({selectedModels.length})</span>
@@ -493,10 +627,11 @@ export default function Home() {
                       </div>
                       {selectedModels.length > 0 && (
                         <div className="inline-flex flex-wrap gap-2 w-fit max-w-full">
-                          {selectedModels.map((id) => (
-                            <span key={id} className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs">
+{selectedModels.map((id) => (
+                            <span key={id} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs">
+<VendorLogo modelId={id} size={16} className="shrink-0" />
                               <span className="truncate max-w-[180px]" title={id}>
-                                {modelsById[id]?.name || id}
+                                {modelDisplayName(id, modelsById[id])}
                               </span>
                               <button
                                 className="p-1 rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
@@ -510,25 +645,6 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                    <div className="shrink-0 flex items-center gap-2">
-                      <button
-                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
-                        onClick={() => setSelectedModels([])}
-                        disabled={selectedModels.length === 0}
-                      >
-                        Clear all
-                      </button>
-                      <button
-                        className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
-                        onClick={() => {
-                          const ids = new Set(models.map((m) => m.id));
-                          const picks = popularDefaults.filter((id) => ids.has(id)).slice(0, 4);
-                          setSelectedModels(picks);
-                        }}
-                      >
-                        Select defaults
-                      </button>
-                    </div>
                   </div>
 
                   {/* Search and sort */}
@@ -537,14 +653,26 @@ export default function Home() {
                       type="search"
                       placeholder="Search models…"
                       value={modelQuery}
-                      onChange={(e) => setModelQuery(e.target.value)}
-                      onFocus={() => setModelListOpen(true)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setModelQuery(val);
+                        if (val.trim().length === 0) setManuallyClosed(false);
+                      }}
+                      onFocus={() => { setModelListOpen(true); setManuallyClosed(false); }}
                       className="px-2 py-1.5 rounded-md border border-white/10 bg-black/20 w-full sm:w-72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
                     />
                     <div className="flex items-center gap-3">
                       <button
                         className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
-                        onClick={() => setModelListOpen((v) => !v)}
+                        onClick={() => {
+                          if (showModelList) {
+                            setModelListOpen(false);
+                            setManuallyClosed(true);
+                          } else {
+                            setModelListOpen(true);
+                            setManuallyClosed(false);
+                          }
+                        }}
                       >
                         {showModelList ? "Hide list" : "Browse models"}
                       </button>
@@ -578,7 +706,7 @@ export default function Home() {
                   {/* Filtered list */}
                   {showModelList && (
                     <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
-                      {filteredSortedModels.map((m) => {
+{filteredSortedModels.map((m) => {
                         const checked = selectedModels.includes(m.id);
                         return (
                           <label key={m.id} className="flex items-center gap-2 text-sm">
@@ -593,8 +721,9 @@ export default function Home() {
                                 )
                               }
                             />
+<VendorLogo modelId={m.id} size={18} className="shrink-0" />
                             <span className="truncate" title={m.id}>
-                              {m.name || m.id}
+                              {modelDisplayName(m.id, m)}
                             </span>
                           </label>
                         );
@@ -632,29 +761,14 @@ export default function Home() {
                   el.style.height = "auto";
                   el.style.height = `${el.scrollHeight}px`;
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (e.shiftKey) return; // newline
+                    e.preventDefault();
+                    if (input.trim()) onSend(input.trim());
+                  }
+                }}
               />
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] w-28 h-10 shrink-0 disabled:opacity-50"
-                type="submit"
-                disabled={anyRunning}
-              >
-                <Send className="size-4" /> Send
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50 w-28 h-10 shrink-0"
-                type="button"
-                onClick={stopAll}
-                disabled={Object.values(panes).every((p) => !p.running)}
-              >
-                <Square className="size-4" /> Stop all
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium border border-red-400/30 bg-red-500/10 hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 transition-colors w-28 h-10 shrink-0"
-                type="button"
-                onClick={resetAll}
-              >
-                <X className="size-4" /> Reset all
-              </button>
             </form>
             {/* Prompt options */}
             <div className="mt-3 inline-flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
@@ -773,152 +887,146 @@ export default function Home() {
                   </Tip>
                 </div>
               )}
+            {/* Actions toolbar */}
+            <div className="mt-3 flex items-center">
+              <div role="toolbar" aria-label="Compose actions" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button
+                  type="button"
+                  aria-label="Send"
+                  onClick={() => { const v = input.trim(); if (v) onSend(v); }}
+                  disabled={anyRunning || !input.trim()}
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                  title="Send"
+                >
+                  <Send className="size-5 opacity-90" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Stop all"
+                  onClick={stopAll}
+                  disabled={Object.values(panes).every((p) => !p.running)}
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                  title="Stop all"
+                >
+                  <Square className="size-5 opacity-90" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Reset all"
+                  onClick={resetAll}
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10"
+                  title="Reset all"
+                >
+                  <X className="size-5 opacity-90" />
+                </button>
+              </div>
             </div>
+          </div>
           </div>
         </section>
 
         {/* Results */}
         {selectedModels.length > 0 && (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {selectedModels.map((id) => (
-              <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium truncate" title={id}>
-                    {modelsById[id]?.name || id}
-                  </h3>
-                  <div className="flex items-center gap-1">
-                    {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
+          <section>
+            <div className="mb-3 flex items-center justify-end">
+              <div role="toolbar" aria-label="Layout" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button
+                  type="button"
+                  aria-pressed={resultsLayout === 'tiled'}
+                  aria-label="Tiled view"
+                  onClick={() => setResultsLayout('tiled')}
+                  className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'tiled' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
+                  title="Tiled view"
+                >
+                  <LayoutGrid className="size-5 opacity-90" />
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={resultsLayout === 'stacked'}
+                  aria-label="Stacked view"
+                  onClick={() => setResultsLayout('stacked')}
+                  className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'stacked' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
+                  title="Stacked view"
+                >
+                  <Rows className="size-5 opacity-90" />
+                </button>
+              </div>
+            </div>
+            <div className={resultsLayout === 'tiled' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'flex flex-col gap-4'}>
+              {selectedModels.map((id) => (
+                <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
+                  <div className="flex items-center justify-between mb-2">
+<h3 className="font-medium truncate flex items-center gap-2" title={id}>
+<VendorLogo modelId={id} size={18} className="shrink-0" />
+                      <span className="truncate">{modelDisplayName(id, modelsById[id])}</span>
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
+                      <button
+                        className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                        aria-label="Maximize result"
+                        onClick={() => setExpandedId(id)}
+                      >
+                        <Maximize2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="max-h-[320px] overflow-auto pr-1">
+                    {renderTranscript(id)}
+                  </div>
+                  {panes[id]?.error && (
+                    <p className="text-sm text-red-400 mt-2">{panes[id]?.error}</p>
+                  )}
+                  <div className="mt-3 flex gap-2">
                     <button
-                      className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
-                      aria-label="Maximize result"
-                      onClick={() => setExpandedId(id)}
+                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                      onClick={() => {
+                        const c = controllersRef.current[id];
+                        c?.abort();
+                        setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
+                      }}
+                      disabled={!panes[id]?.running}
                     >
-                      <Maximize2 className="size-4" />
+                      <Square className="size-3.5" /> Stop
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                      onClick={() => {
+                        const text = toCopyString(id);
+                        navigator.clipboard.writeText(text).catch(() => {});
+                      }}
+                    >
+                      <Copy className="size-3.5" /> Copy
+                    </button>
+                  </div>
+                  <div className="mt-3 flex items-start gap-2">
+                    <textarea
+                      className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                      placeholder="Reply to this model…"
+                      value={replyInputs[id] || ''}
+                      onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
+                      disabled={anyRunning}
+                      rows={2}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (e.shiftKey) return; // newline
+                          e.preventDefault();
+                          void sendReply(id);
+                        }
+                      }}
+                    />
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                      type="button"
+                      onClick={() => { void sendReply(id); }}
+                      disabled={anyRunning || !(replyInputs[id] || '').trim()}
+                    >
+                      <Send className="size-3.5" /> Reply
                     </button>
                   </div>
                 </div>
-                <div className="max-h-[320px] overflow-auto pr-1">
-                  {renderTranscript(id)}
-                </div>
-                {panes[id]?.error && (
-                  <p className="text-sm text-red-400 mt-2">{panes[id]?.error}</p>
-                )}
-                <div className="mt-3 flex gap-2">
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
-                    onClick={() => {
-                      const c = controllersRef.current[id];
-                      c?.abort();
-                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
-                    }}
-                    disabled={!panes[id]?.running}
-                  >
-                    <Square className="size-3.5" /> Stop
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
-                    onClick={() => {
-                      const text = toCopyString(id);
-                      navigator.clipboard.writeText(text).catch(() => {});
-                    }}
-                  >
-                    <Copy className="size-3.5" /> Copy
-                  </button>
-                </div>
-                <div className="mt-3 flex items-start gap-2">
-                  <textarea
-                    className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
-                    placeholder="Reply to this model…"
-                    value={replyInputs[id] || ''}
-                    onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
-                    disabled={anyRunning}
-                    rows={2}
-                  />
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
-                    type="button"
-                    onClick={async () => {
-                      const text = (replyInputs[id] || '').trim();
-                      if (!text || anyRunning) return;
-                      const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-                      const history = conversations[id] || [];
-                      const msgs = [] as ChatMessage[];
-                      if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
-                      const options: string[] = [];
-                      if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
-                        options.push(`Please limit your answer to at most ${limitWords} words.`);
-                      }
-                      const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
-                      msgs.push(...history, { role: 'user', content: finalText });
-                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
-                      setConversations((prev) => {
-                        const next = { ...prev } as Record<string, ChatMessage[]>;
-                        const arr = next[id] ? [...next[id]] : [];
-                        arr.push({ role: 'user', content: finalText });
-                        next[id] = arr;
-                        return next;
-                      });
-                      // Persist the user reply to the existing conversation
-                      const convId = activeConversationId;
-                      try {
-                        if (convId) {
-                          await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
-                        }
-                      } catch {}
-                      const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-                      const handle = streamChat(
-                        {
-                          apiKey,
-                          model: id,
-                          messages: msgs,
-                          temperature,
-                          maxTokens,
-                          top_p: topP,
-                          top_k: topK,
-                          frequency_penalty: freqPenalty,
-                          presence_penalty: presencePenalty,
-                          repetition_penalty: repetitionPenalty,
-                          min_p: minP,
-                          top_a: topA,
-                          seed,
-                          stop,
-                          debug: true,
-                          traceId,
-                        },
-                        {
-                          onToken: (chunk) =>
-                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
-                          onDone: (full) => {
-                            setConversations((prev) => {
-                              const next = { ...prev } as Record<string, ChatMessage[]>;
-                              const arr = next[id] ? [...next[id]] : [];
-                              arr.push({ role: 'assistant', content: full || '' });
-                              next[id] = arr;
-                              return next;
-                            });
-                            // Persist assistant with model id
-                            try {
-                              if (convId) {
-                                void sdk.conversations.messages.create(convId, { role: 'assistant', content: full || '', model: id });
-                              }
-                            } catch {}
-                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
-                          },
-                          onError: (err) =>
-                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
-                        }
-                      );
-                      controllersRef.current[id] = handle.abortController;
-                      handle.promise.catch(() => {});
-                      setReplyInputs((r) => ({ ...r, [id]: '' }));
-                    }}
-                    disabled={anyRunning || !(replyInputs[id] || '').trim()}
-                  >
-                    <Send className="size-3.5" /> Reply
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </section>
         )}
 
@@ -927,8 +1035,9 @@ export default function Home() {
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="relative w-full max-w-4xl max-h-[85vh] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl p-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium truncate" title={expandedId}>
-                  {modelsById[expandedId]?.name || expandedId}
+<h3 className="font-medium truncate flex items-center gap-2" title={expandedId}>
+<VendorLogo modelId={expandedId} size={20} className="shrink-0" />
+                  <span className="truncate">{modelDisplayName(expandedId, modelsById[expandedId])}</span>
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
@@ -976,86 +1085,19 @@ export default function Home() {
                   onChange={(e) => setReplyInputs((r) => ({ ...r, [expandedId]: e.target.value }))}
                   disabled={anyRunning}
                   rows={2}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.shiftKey) return; // newline
+                      e.preventDefault();
+                      const id = expandedId as string;
+                      void sendReply(id);
+                    }
+                  }}
                 />
                 <button
                   className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
                   type="button"
-                  onClick={async () => {
-                    const id = expandedId as string;
-                    const text = (replyInputs[id] || '').trim();
-                    if (!text || anyRunning) return;
-                    const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-                    const history = conversations[id] || [];
-                    const msgs = [] as ChatMessage[];
-                    if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
-                    const options: string[] = [];
-                    if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
-                      options.push(`Please limit your answer to at most ${limitWords} words.`);
-                    }
-                    const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
-                    msgs.push(...history, { role: 'user', content: finalText });
-                    setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
-                    setConversations((prev) => {
-                      const next = { ...prev } as Record<string, ChatMessage[]>;
-                      const arr = next[id] ? [...next[id]] : [];
-                      arr.push({ role: 'user', content: finalText });
-                      next[id] = arr;
-                      return next;
-                    });
-                    // Persist the user reply
-                    const convId2 = activeConversationId;
-                    try {
-                      if (convId2) {
-                        await sdk.conversations.messages.create(convId2, { role: 'user', content: finalText });
-                      }
-                    } catch {}
-                    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-                    const handle = streamChat(
-                      {
-                        apiKey,
-                        model: id,
-                        messages: msgs,
-                        temperature,
-                        maxTokens,
-                        top_p: topP,
-                        top_k: topK,
-                        frequency_penalty: freqPenalty,
-                        presence_penalty: presencePenalty,
-                        repetition_penalty: repetitionPenalty,
-                        min_p: minP,
-                        top_a: topA,
-                        seed,
-                        stop,
-                        debug: true,
-                        traceId,
-                      },
-                      {
-                        onToken: (chunk) =>
-                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
-                        onDone: (full) => {
-                          setConversations((prev) => {
-                            const next = { ...prev } as Record<string, ChatMessage[]>;
-                            const arr = next[id] ? [...next[id]] : [];
-                            arr.push({ role: 'assistant', content: full || '' });
-                            next[id] = arr;
-                            return next;
-                          });
-                          // Persist assistant with model id
-                          try {
-                            if (convId2) {
-                              void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
-                            }
-                          } catch {}
-                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
-                        },
-                        onError: (err) =>
-                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
-                      }
-                    );
-                    controllersRef.current[id] = handle.abortController;
-                    handle.promise.catch(() => {});
-                    setReplyInputs((r) => ({ ...r, [id]: '' }));
-                  }}
+                  onClick={() => { const id = expandedId as string; void sendReply(id); }}
                   disabled={anyRunning || !(replyInputs[expandedId] || '').trim()}
                 >
                   <Send className="size-3.5" /> Reply
