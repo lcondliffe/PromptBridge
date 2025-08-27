@@ -18,6 +18,8 @@ export async function deleteConversation(id: string, userId: string) {
   if (!conv || conv.userId !== userId) {
     throw new Error("Conversation not found");
   }
+  // Delete dependent messages first to satisfy FK constraints if cascade isn't configured
+  await prisma.message.deleteMany({ where: { conversationId: id } });
   return prisma.conversation.delete({
     where: { id },
   });

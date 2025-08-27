@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
 import { Send, Square, Copy, Maximize2, X } from "lucide-react";
+import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
 
@@ -75,10 +76,15 @@ export default function Home() {
     200
   );
 
-  // Conversations and streaming state
+// Conversations and streaming state
   const [conversations, setConversations] = useLocalStorage<Record<string, ChatMessage[]>>(
     "conversations_v1",
     {}
+  );
+  // Active persisted conversation id
+  const [activeConversationId, setActiveConversationId] = useLocalStorage<string | null>(
+    "active_conversation_id",
+    null
   );
   type Pane = {
     draft: string;
@@ -214,6 +220,22 @@ export default function Home() {
     for (const m of selectedModels) initial[m] = { draft: "", running: true };
     setPanes(initial);
 
+    // Ensure a persisted conversation exists and persist the user message
+    let convIdLocal = activeConversationId;
+    try {
+      if (!convIdLocal) {
+        const title = inputPrompt.trim().split("\n")[0].slice(0, 80) || "Untitled";
+        const conv = await sdk.conversations.create(title);
+        convIdLocal = conv.id;
+        setActiveConversationId(convIdLocal);
+      }
+      // Persist the user message for this turn
+      await sdk.conversations.messages.create(convIdLocal!, { role: "user", content: finalPrompt });
+    } catch (e) {
+      console.error("Failed to persist user message", e);
+      // Non-fatal; continue streaming UI regardless
+    }
+
     // Parse stop strings into array
     const stop = stopStr
       .split(',')
@@ -276,6 +298,12 @@ export default function Home() {
               next[model] = arr;
               return next;
             });
+            // Persist assistant message with model tag
+            try {
+              if (convIdLocal) {
+                void sdk.conversations.messages.create(convIdLocal, { role: "assistant", content: full || "", model });
+              }
+            } catch {}
             setPanes((p) => ({ ...p, [model]: { ...(p[model] || { draft: '' }), running: false, draft: '' } }));
           },
           onError: (err) =>
@@ -308,6 +336,7 @@ export default function Home() {
     controllersRef.current = {} as Record<string, AbortController>;
     setConversations({});
     setPanes({});
+    setActiveConversationId(null);
   };
 
 
@@ -803,7 +832,7 @@ export default function Home() {
                   <button
                     className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const text = (replyInputs[id] || '').trim();
                       if (!text || anyRunning) return;
                       const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
@@ -824,6 +853,13 @@ export default function Home() {
                         next[id] = arr;
                         return next;
                       });
+                      // Persist the user reply to the existing conversation
+                      const convId = activeConversationId;
+                      try {
+                        if (convId) {
+                          await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
+                        }
+                      } catch {}
                       const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
                       const handle = streamChat(
                         {
@@ -855,6 +891,12 @@ export default function Home() {
                               next[id] = arr;
                               return next;
                             });
+                            // Persist assistant with model id
+                            try {
+                              if (convId) {
+                                void sdk.conversations.messages.create(convId, { role: 'assistant', content: full || '', model: id });
+                              }
+                            } catch {}
                             setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
                           },
                           onError: (err) =>
@@ -933,7 +975,7 @@ export default function Home() {
                 <button
                   className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     const id = expandedId as string;
                     const text = (replyInputs[id] || '').trim();
                     if (!text || anyRunning) return;
@@ -955,6 +997,13 @@ export default function Home() {
                       next[id] = arr;
                       return next;
                     });
+                    // Persist the user reply
+                    const convId2 = activeConversationId;
+                    try {
+                      if (convId2) {
+                        await sdk.conversations.messages.create(convId2, { role: 'user', content: finalText });
+                      }
+                    } catch {}
                     const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
                     const handle = streamChat(
                       {
@@ -986,6 +1035,12 @@ export default function Home() {
                             next[id] = arr;
                             return next;
                           });
+                          // Persist assistant with model id
+                          try {
+                            if (convId2) {
+                              void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
+                            }
+                          } catch {}
                           setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
                         },
                         onError: (err) =>
