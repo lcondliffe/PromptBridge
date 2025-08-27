@@ -401,8 +401,9 @@ export default function Home() {
   const filteredCount = useMemo(() => filteredSortedModels.length, [filteredSortedModels]);
   // Collapse/expand model list
   const [modelListOpen, setModelListOpen] = useState(false);
+  const [manuallyClosed, setManuallyClosed] = useState(false);
   const isSearching = modelQuery.trim().length > 0;
-  const showModelList = modelListOpen || isSearching;
+  const showModelList = modelListOpen || (isSearching && !manuallyClosed);
 
   // Helpers to safely parse numeric inputs
   function safeNum(v: string, min?: number, max?: number): number | undefined {
@@ -627,14 +628,26 @@ export default function Home() {
                       type="search"
                       placeholder="Search models…"
                       value={modelQuery}
-                      onChange={(e) => setModelQuery(e.target.value)}
-                      onFocus={() => setModelListOpen(true)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setModelQuery(val);
+                        if (val.trim().length === 0) setManuallyClosed(false);
+                      }}
+                      onFocus={() => { setModelListOpen(true); setManuallyClosed(false); }}
                       className="px-2 py-1.5 rounded-md border border-white/10 bg-black/20 w-full sm:w-72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
                     />
                     <div className="flex items-center gap-3">
                       <button
                         className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
-                        onClick={() => setModelListOpen((v) => !v)}
+                        onClick={() => {
+                          if (showModelList) {
+                            setModelListOpen(false);
+                            setManuallyClosed(true);
+                          } else {
+                            setModelListOpen(true);
+                            setManuallyClosed(false);
+                          }
+                        }}
                       >
                         {showModelList ? "Hide list" : "Browse models"}
                       </button>
