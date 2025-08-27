@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 
 /**
  * VendorLogo renders a small vendor logo for a given model id (e.g. "openai/gpt-4o-mini").
@@ -70,7 +71,7 @@ export default function VendorLogo({
   const t = title || vendor || "Vendor";
 
   return (
-    <img
+    <Image
       src={src}
       width={size}
       height={size}
@@ -79,6 +80,7 @@ export default function VendorLogo({
       onError={() => setIdx((i) => Math.min(i + 1, sources.length - 1))}
       className={`inline-block object-contain bg-white/5 ${radius} ${className}`.trim()}
       style={{ width: size, height: size }}
+      unoptimized
     />
   );
 }
