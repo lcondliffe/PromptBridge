@@ -360,6 +360,18 @@ export default function Home() {
     return map;
   }, [models]);
 
+  // Helper to display model name without vendor prefix
+  const modelDisplayName = useCallback((id: string, model?: ModelInfo) => {
+    const nm = model?.name;
+    if (typeof nm === "string" && nm.length > 0) {
+      const idx = nm.indexOf(":");
+      if (idx >= 0) return nm.slice(idx + 1).trim();
+      return nm;
+    }
+    const slug = id.includes("/") ? id.split("/")[1] : id;
+    return slug.replace(/-/g, " ");
+  }, []);
+
   // Phase 1: Model selection helpers
   const [modelQuery, setModelQuery] = useLocalStorage<string>("model_query", "");
   const [modelSort, setModelSort] = useLocalStorage<"alpha" | "none">("model_sort", "alpha");
@@ -517,7 +529,7 @@ export default function Home() {
                             <span key={id} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs">
 <VendorLogo modelId={id} size={16} className="shrink-0" />
                               <span className="truncate max-w-[180px]" title={id}>
-                                {modelsById[id]?.name || id}
+                                {modelDisplayName(id, modelsById[id])}
                               </span>
                               <button
                                 className="p-1 rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
@@ -597,7 +609,7 @@ export default function Home() {
                             />
 <VendorLogo modelId={m.id} size={18} className="shrink-0" />
                             <span className="truncate" title={m.id}>
-                              {m.name || m.id}
+                              {modelDisplayName(m.id, m)}
                             </span>
                           </label>
                         );
@@ -788,7 +800,7 @@ export default function Home() {
                 <div className="flex items-center justify-between mb-2">
 <h3 className="font-medium truncate flex items-center gap-2" title={id}>
 <VendorLogo modelId={id} size={18} className="shrink-0" />
-                    <span className="truncate">{modelsById[id]?.name || id}</span>
+                    <span className="truncate">{modelDisplayName(id, modelsById[id])}</span>
                   </h3>
                   <div className="flex items-center gap-1">
                     {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
@@ -933,7 +945,7 @@ export default function Home() {
               <div className="flex items-center justify-between mb-3">
 <h3 className="font-medium truncate flex items-center gap-2" title={expandedId}>
 <VendorLogo modelId={expandedId} size={20} className="shrink-0" />
-                  <span className="truncate">{modelsById[expandedId]?.name || expandedId}</span>
+                  <span className="truncate">{modelDisplayName(expandedId, modelsById[expandedId])}</span>
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
