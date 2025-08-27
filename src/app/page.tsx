@@ -9,6 +9,7 @@ import type { ChatMessage, ModelInfo } from "@/lib/types";
 import useLocalStorage from "@/lib/useLocalStorage";
 import { useApiKey } from "@/lib/apiKey";
 import Markdown from "@/components/Markdown";
+import VendorLogo from "@/components/VendorLogo";
 
 // Lightweight tooltip component
 function Tip({ text, children }: { text: string; children: ReactNode }) {
@@ -493,8 +494,9 @@ export default function Home() {
                       </div>
                       {selectedModels.length > 0 && (
                         <div className="inline-flex flex-wrap gap-2 w-fit max-w-full">
-                          {selectedModels.map((id) => (
-                            <span key={id} className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs">
+{selectedModels.map((id) => (
+                            <span key={id} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs">
+<VendorLogo modelId={id} size={16} className="shrink-0" />
                               <span className="truncate max-w-[180px]" title={id}>
                                 {modelsById[id]?.name || id}
                               </span>
@@ -578,7 +580,7 @@ export default function Home() {
                   {/* Filtered list */}
                   {showModelList && (
                     <div className="max-h-56 overflow-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
-                      {filteredSortedModels.map((m) => {
+{filteredSortedModels.map((m) => {
                         const checked = selectedModels.includes(m.id);
                         return (
                           <label key={m.id} className="flex items-center gap-2 text-sm">
@@ -593,6 +595,7 @@ export default function Home() {
                                 )
                               }
                             />
+<VendorLogo modelId={m.id} size={18} className="shrink-0" />
                             <span className="truncate" title={m.id}>
                               {m.name || m.id}
                             </span>
@@ -783,8 +786,9 @@ export default function Home() {
             {selectedModels.map((id) => (
               <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium truncate" title={id}>
-                    {modelsById[id]?.name || id}
+<h3 className="font-medium truncate flex items-center gap-2" title={id}>
+<VendorLogo modelId={id} size={18} className="shrink-0" />
+                    <span className="truncate">{modelsById[id]?.name || id}</span>
                   </h3>
                   <div className="flex items-center gap-1">
                     {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
@@ -927,8 +931,9 @@ export default function Home() {
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="relative w-full max-w-4xl max-h-[85vh] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl p-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium truncate" title={expandedId}>
-                  {modelsById[expandedId]?.name || expandedId}
+<h3 className="font-medium truncate flex items-center gap-2" title={expandedId}>
+<VendorLogo modelId={expandedId} size={20} className="shrink-0" />
+                  <span className="truncate">{modelsById[expandedId]?.name || expandedId}</span>
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
