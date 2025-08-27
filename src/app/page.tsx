@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
-import { Send, Square, Copy, Maximize2, X } from "lucide-react";
+import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChat } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
@@ -67,6 +67,11 @@ export default function Home() {
   const [topA, setTopA] = useLocalStorage<number | undefined>("top_a", undefined);
   const [seed, setSeed] = useLocalStorage<number | undefined>("seed", undefined);
   const [stopStr, setStopStr] = useLocalStorage<string>("stop_str", "");
+  // Layout for results: 'tiled' grid vs 'stacked' full-width list
+  const [resultsLayout, setResultsLayout] = useLocalStorage<'tiled' | 'stacked'>(
+    'results_layout',
+    'tiled'
+  );
 
   // Prompt options
   const [limitWordsEnabled, setLimitWordsEnabled] = useLocalStorage<boolean>(
@@ -910,80 +915,106 @@ export default function Home() {
 
         {/* Results */}
         {selectedModels.length > 0 && (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {selectedModels.map((id) => (
-              <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
-                <div className="flex items-center justify-between mb-2">
+          <section>
+            <div className="mb-3 flex items-center justify-end">
+              <div role="toolbar" aria-label="Layout" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button
+                  type="button"
+                  aria-pressed={resultsLayout === 'tiled'}
+                  aria-label="Tiled view"
+                  onClick={() => setResultsLayout('tiled')}
+                  className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'tiled' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
+                  title="Tiled view"
+                >
+                  <LayoutGrid className="size-5 opacity-90" />
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={resultsLayout === 'stacked'}
+                  aria-label="Stacked view"
+                  onClick={() => setResultsLayout('stacked')}
+                  className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'stacked' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
+                  title="Stacked view"
+                >
+                  <Rows className="size-5 opacity-90" />
+                </button>
+              </div>
+            </div>
+            <div className={resultsLayout === 'tiled' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'flex flex-col gap-4'}>
+              {selectedModels.map((id) => (
+                <div key={id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_40px_-12px_rgba(0,0,0,0.6)] p-4">
+                  <div className="flex items-center justify-between mb-2">
 <h3 className="font-medium truncate flex items-center gap-2" title={id}>
 <VendorLogo modelId={id} size={18} className="shrink-0" />
-                    <span className="truncate">{modelDisplayName(id, modelsById[id])}</span>
-                  </h3>
-                  <div className="flex items-center gap-1">
-                    {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
+                      <span className="truncate">{modelDisplayName(id, modelsById[id])}</span>
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
+                      <button
+                        className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                        aria-label="Maximize result"
+                        onClick={() => setExpandedId(id)}
+                      >
+                        <Maximize2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="max-h-[320px] overflow-auto pr-1">
+                    {renderTranscript(id)}
+                  </div>
+                  {panes[id]?.error && (
+                    <p className="text-sm text-red-400 mt-2">{panes[id]?.error}</p>
+                  )}
+                  <div className="mt-3 flex gap-2">
                     <button
-                      className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
-                      aria-label="Maximize result"
-                      onClick={() => setExpandedId(id)}
+                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                      onClick={() => {
+                        const c = controllersRef.current[id];
+                        c?.abort();
+                        setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
+                      }}
+                      disabled={!panes[id]?.running}
                     >
-                      <Maximize2 className="size-4" />
+                      <Square className="size-3.5" /> Stop
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                      onClick={() => {
+                        const text = toCopyString(id);
+                        navigator.clipboard.writeText(text).catch(() => {});
+                      }}
+                    >
+                      <Copy className="size-3.5" /> Copy
+                    </button>
+                  </div>
+                  <div className="mt-3 flex items-start gap-2">
+                    <textarea
+                      className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                      placeholder="Reply to this model…"
+                      value={replyInputs[id] || ''}
+                      onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
+                      disabled={anyRunning}
+                      rows={2}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (e.shiftKey) return; // newline
+                          e.preventDefault();
+                          void sendReply(id);
+                        }
+                      }}
+                    />
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                      type="button"
+                      onClick={() => { void sendReply(id); }}
+                      disabled={anyRunning || !(replyInputs[id] || '').trim()}
+                    >
+                      <Send className="size-3.5" /> Reply
                     </button>
                   </div>
                 </div>
-                <div className="max-h-[320px] overflow-auto pr-1">
-                  {renderTranscript(id)}
-                </div>
-                {panes[id]?.error && (
-                  <p className="text-sm text-red-400 mt-2">{panes[id]?.error}</p>
-                )}
-                <div className="mt-3 flex gap-2">
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
-                    onClick={() => {
-                      const c = controllersRef.current[id];
-                      c?.abort();
-                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
-                    }}
-                    disabled={!panes[id]?.running}
-                  >
-                    <Square className="size-3.5" /> Stop
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
-                    onClick={() => {
-                      const text = toCopyString(id);
-                      navigator.clipboard.writeText(text).catch(() => {});
-                    }}
-                  >
-                    <Copy className="size-3.5" /> Copy
-                  </button>
-                </div>
-                <div className="mt-3 flex items-start gap-2">
-                  <textarea
-                    className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
-                    placeholder="Reply to this model…"
-                    value={replyInputs[id] || ''}
-                    onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
-                    disabled={anyRunning}
-                    rows={2}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (e.shiftKey) return; // newline
-                        e.preventDefault();
-                        void sendReply(id);
-                      }
-                    }}
-                  />
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
-                    type="button"
-                    onClick={() => { void sendReply(id); }}
-                    disabled={anyRunning || !(replyInputs[id] || '').trim()}
-                  >
-                    <Send className="size-3.5" /> Reply
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </section>
         )}
 
