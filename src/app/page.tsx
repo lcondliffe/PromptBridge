@@ -468,6 +468,82 @@ export default function Home() {
     );
   };
 
+  // Send a reply for a given model (used by button click and Enter key)
+  const sendReply = async (id: string) => {
+    const text = (replyInputs[id] || '').trim();
+    if (!text || anyRunning) return;
+    const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const history = conversations[id] || [];
+    const msgs = [] as ChatMessage[];
+    if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+    const options: string[] = [];
+    if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
+      options.push(`Please limit your answer to at most ${limitWords} words.`);
+    }
+    const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
+    msgs.push(...history, { role: 'user', content: finalText });
+    setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
+    setConversations((prev) => {
+      const next = { ...prev } as Record<string, ChatMessage[]>;
+      const arr = next[id] ? [...next[id]] : [];
+      arr.push({ role: 'user', content: finalText });
+      next[id] = arr;
+      return next;
+    });
+    try {
+      const convId = activeConversationId;
+      if (convId) {
+        await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
+      }
+    } catch {}
+    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const handle = streamChat(
+      {
+        apiKey,
+        model: id,
+        messages: msgs,
+        temperature,
+        maxTokens,
+        top_p: topP,
+        top_k: topK,
+        frequency_penalty: freqPenalty,
+        presence_penalty: presencePenalty,
+        repetition_penalty: repetitionPenalty,
+        min_p: minP,
+        top_a: topA,
+        seed,
+        stop,
+        debug: true,
+        traceId,
+      },
+      {
+        onToken: (chunk) =>
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
+        onDone: (full) => {
+          setConversations((prev) => {
+            const next = { ...prev } as Record<string, ChatMessage[]>;
+            const arr = next[id] ? [...next[id]] : [];
+            arr.push({ role: 'assistant', content: full || '' });
+            next[id] = arr;
+            return next;
+          });
+          try {
+            const convId2 = activeConversationId;
+            if (convId2) {
+              void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
+            }
+          } catch {}
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
+        },
+        onError: (err) =>
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
+      }
+    );
+    controllersRef.current[id] = handle.abortController;
+    handle.promise.catch(() => {});
+    setReplyInputs((r) => ({ ...r, [id]: '' }));
+  };
+
   return (
     <div className="relative min-h-screen text-zinc-100">
       {/* Background gradient and subtle grid overlay */}
@@ -646,6 +722,13 @@ export default function Home() {
                   const el = e.currentTarget;
                   el.style.height = "auto";
                   el.style.height = `${el.scrollHeight}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (e.shiftKey) return; // newline
+                    e.preventDefault();
+                    if (input.trim()) onSend(input.trim());
+                  }
                 }}
               />
               <button
@@ -849,85 +932,18 @@ export default function Home() {
                     onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
                     disabled={anyRunning}
                     rows={2}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (e.shiftKey) return; // newline
+                        e.preventDefault();
+                        void sendReply(id);
+                      }
+                    }}
                   />
                   <button
                     className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
                     type="button"
-                    onClick={async () => {
-                      const text = (replyInputs[id] || '').trim();
-                      if (!text || anyRunning) return;
-                      const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-                      const history = conversations[id] || [];
-                      const msgs = [] as ChatMessage[];
-                      if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
-                      const options: string[] = [];
-                      if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
-                        options.push(`Please limit your answer to at most ${limitWords} words.`);
-                      }
-                      const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
-                      msgs.push(...history, { role: 'user', content: finalText });
-                      setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
-                      setConversations((prev) => {
-                        const next = { ...prev } as Record<string, ChatMessage[]>;
-                        const arr = next[id] ? [...next[id]] : [];
-                        arr.push({ role: 'user', content: finalText });
-                        next[id] = arr;
-                        return next;
-                      });
-                      // Persist the user reply to the existing conversation
-                      const convId = activeConversationId;
-                      try {
-                        if (convId) {
-                          await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
-                        }
-                      } catch {}
-                      const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-                      const handle = streamChat(
-                        {
-                          apiKey,
-                          model: id,
-                          messages: msgs,
-                          temperature,
-                          maxTokens,
-                          top_p: topP,
-                          top_k: topK,
-                          frequency_penalty: freqPenalty,
-                          presence_penalty: presencePenalty,
-                          repetition_penalty: repetitionPenalty,
-                          min_p: minP,
-                          top_a: topA,
-                          seed,
-                          stop,
-                          debug: true,
-                          traceId,
-                        },
-                        {
-                          onToken: (chunk) =>
-                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
-                          onDone: (full) => {
-                            setConversations((prev) => {
-                              const next = { ...prev } as Record<string, ChatMessage[]>;
-                              const arr = next[id] ? [...next[id]] : [];
-                              arr.push({ role: 'assistant', content: full || '' });
-                              next[id] = arr;
-                              return next;
-                            });
-                            // Persist assistant with model id
-                            try {
-                              if (convId) {
-                                void sdk.conversations.messages.create(convId, { role: 'assistant', content: full || '', model: id });
-                              }
-                            } catch {}
-                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
-                          },
-                          onError: (err) =>
-                            setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
-                        }
-                      );
-                      controllersRef.current[id] = handle.abortController;
-                      handle.promise.catch(() => {});
-                      setReplyInputs((r) => ({ ...r, [id]: '' }));
-                    }}
+                    onClick={() => { void sendReply(id); }}
                     disabled={anyRunning || !(replyInputs[id] || '').trim()}
                   >
                     <Send className="size-3.5" /> Reply
@@ -993,86 +1009,19 @@ export default function Home() {
                   onChange={(e) => setReplyInputs((r) => ({ ...r, [expandedId]: e.target.value }))}
                   disabled={anyRunning}
                   rows={2}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.shiftKey) return; // newline
+                      e.preventDefault();
+                      const id = expandedId as string;
+                      void sendReply(id);
+                    }
+                  }}
                 />
                 <button
                   className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
                   type="button"
-                  onClick={async () => {
-                    const id = expandedId as string;
-                    const text = (replyInputs[id] || '').trim();
-                    if (!text || anyRunning) return;
-                    const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-                    const history = conversations[id] || [];
-                    const msgs = [] as ChatMessage[];
-                    if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
-                    const options: string[] = [];
-                    if (limitWordsEnabled && Number.isFinite(limitWords) && (limitWords as number) > 0) {
-                      options.push(`Please limit your answer to at most ${limitWords} words.`);
-                    }
-                    const finalText = options.length ? `${text}\n\nConstraints:\n- ${options.join('\n- ')}` : text;
-                    msgs.push(...history, { role: 'user', content: finalText });
-                    setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: '', running: true, error: undefined } }));
-                    setConversations((prev) => {
-                      const next = { ...prev } as Record<string, ChatMessage[]>;
-                      const arr = next[id] ? [...next[id]] : [];
-                      arr.push({ role: 'user', content: finalText });
-                      next[id] = arr;
-                      return next;
-                    });
-                    // Persist the user reply
-                    const convId2 = activeConversationId;
-                    try {
-                      if (convId2) {
-                        await sdk.conversations.messages.create(convId2, { role: 'user', content: finalText });
-                      }
-                    } catch {}
-                    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-                    const handle = streamChat(
-                      {
-                        apiKey,
-                        model: id,
-                        messages: msgs,
-                        temperature,
-                        maxTokens,
-                        top_p: topP,
-                        top_k: topK,
-                        frequency_penalty: freqPenalty,
-                        presence_penalty: presencePenalty,
-                        repetition_penalty: repetitionPenalty,
-                        min_p: minP,
-                        top_a: topA,
-                        seed,
-                        stop,
-                        debug: true,
-                        traceId,
-                      },
-                      {
-                        onToken: (chunk) =>
-                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
-                        onDone: (full) => {
-                          setConversations((prev) => {
-                            const next = { ...prev } as Record<string, ChatMessage[]>;
-                            const arr = next[id] ? [...next[id]] : [];
-                            arr.push({ role: 'assistant', content: full || '' });
-                            next[id] = arr;
-                            return next;
-                          });
-                          // Persist assistant with model id
-                          try {
-                            if (convId2) {
-                              void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
-                            }
-                          } catch {}
-                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
-                        },
-                        onError: (err) =>
-                          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
-                      }
-                    );
-                    controllersRef.current[id] = handle.abortController;
-                    handle.promise.catch(() => {});
-                    setReplyInputs((r) => ({ ...r, [id]: '' }));
-                  }}
+                  onClick={() => { const id = expandedId as string; void sendReply(id); }}
                   disabled={anyRunning || !(replyInputs[expandedId] || '').trim()}
                 >
                   <Send className="size-3.5" /> Reply
