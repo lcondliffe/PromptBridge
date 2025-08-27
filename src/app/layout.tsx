@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "prismjs/themes/prism-tomorrow.css";
 import ClientShell from "./ClientShell";
 
 const geistSans = Geist({

@@ -8,6 +8,7 @@ import type { ChatMessage, ModelInfo } from "@/lib/types";
 
 import useLocalStorage from "@/lib/useLocalStorage";
 import { useApiKey } from "@/lib/apiKey";
+import Markdown from "@/components/Markdown";
 
 // Lightweight tooltip component
 function Tip({ text, children }: { text: string; children: ReactNode }) {
@@ -435,7 +436,11 @@ export default function Home() {
         {visible.map((m, idx) => (
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
-              <div className="whitespace-pre-wrap">{m.content}</div>
+              {m.role === 'assistant' ? (
+                <Markdown text={m.content} />
+              ) : (
+                <div className="whitespace-pre-wrap">{m.content}</div>
+              )}
             </div>
           </div>
         ))}
