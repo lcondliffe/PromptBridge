@@ -769,28 +769,6 @@ export default function Home() {
                   }
                 }}
               />
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-[colors,transform] duration-200 active:scale-[0.98] w-28 h-10 shrink-0 disabled:opacity-50"
-                type="submit"
-                disabled={anyRunning}
-              >
-                <Send className="size-4" /> Send
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 transition-colors disabled:opacity-50 w-28 h-10 shrink-0"
-                type="button"
-                onClick={stopAll}
-                disabled={Object.values(panes).every((p) => !p.running)}
-              >
-                <Square className="size-4" /> Stop all
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-lg px-4 text-sm font-medium border border-red-400/30 bg-red-500/10 hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 transition-colors w-28 h-10 shrink-0"
-                type="button"
-                onClick={resetAll}
-              >
-                <X className="size-4" /> Reset all
-              </button>
             </form>
             {/* Prompt options */}
             <div className="mt-3 inline-flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
@@ -909,7 +887,41 @@ export default function Home() {
                   </Tip>
                 </div>
               )}
+            {/* Actions toolbar */}
+            <div className="mt-3 flex items-center">
+              <div role="toolbar" aria-label="Compose actions" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button
+                  type="button"
+                  aria-label="Send"
+                  onClick={() => { const v = input.trim(); if (v) onSend(v); }}
+                  disabled={anyRunning || !input.trim()}
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                  title="Send"
+                >
+                  <Send className="size-5 opacity-90" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Stop all"
+                  onClick={stopAll}
+                  disabled={Object.values(panes).every((p) => !p.running)}
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                  title="Stop all"
+                >
+                  <Square className="size-5 opacity-90" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Reset all"
+                  onClick={resetAll}
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10"
+                  title="Reset all"
+                >
+                  <X className="size-5 opacity-90" />
+                </button>
+              </div>
             </div>
+          </div>
           </div>
         </section>
 
