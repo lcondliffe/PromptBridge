@@ -95,6 +95,9 @@ export default function Home() {
   };
   const [panes, setPanes] = useState<Record<string, Pane>>({});
   const controllersRef = useRef<Record<string, AbortController>>({});
+  // Refs to the start of the streaming draft per model tile
+  const draftStartRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [scrollToStartIds, setScrollToStartIds] = useState<string[]>([]);
 
 
   // Expanded (maximized) result pane
@@ -221,6 +224,8 @@ export default function Home() {
     const initial: Record<string, Pane> = {};
     for (const m of selectedModels) initial[m] = { draft: "", running: true };
     setPanes(initial);
+    // After tiles render their new draft bubbles, scroll each to the start anchor
+    setScrollToStartIds(selectedModels);
 
     // Ensure a persisted conversation exists and persist the user message
     let convIdLocal = activeConversationId;
@@ -360,6 +365,18 @@ export default function Home() {
     return map;
   }, [models]);
 
+  // When requested, scroll model tiles to the start of their new streaming replies
+  useEffect(() => {
+    if (scrollToStartIds.length === 0) return;
+    for (const id of scrollToStartIds) {
+      const el = draftStartRefs.current[id];
+      try {
+        el?.scrollIntoView({ block: 'start' });
+      } catch {}
+    }
+    setScrollToStartIds([]);
+  }, [scrollToStartIds]);
+
   // Helper to display model name without vendor prefix
   const modelDisplayName = useCallback((id: string, model?: ModelInfo) => {
     const nm = model?.name;
@@ -459,11 +476,14 @@ export default function Home() {
           </div>
         ))}
         {panes[modelId]?.running && (
-          <div className="flex justify-start">
-            <div className="max-w-full rounded-lg px-3 py-2 border border-white/10 bg-white/5">
-              <div className="whitespace-pre-wrap">{panes[modelId]?.draft || ''}<span className="opacity-60">▌</span></div>
+          <>
+            <div ref={(el) => { draftStartRefs.current[modelId] = el; }} className="h-0" />
+            <div className="flex justify-start">
+              <div className="max-w-full rounded-lg px-3 py-2 border border-white/10 bg-white/5">
+                <div className="whitespace-pre-wrap">{panes[modelId]?.draft || ''}<span className="opacity-60">▌</span></div>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     );
