@@ -129,12 +129,9 @@ export default function Home() {
 
   const popularDefaults = useMemo(
     () => [
-      "openai/gpt-4o-mini",
-      "anthropic/claude-3.5-sonnet",
-      "deepseek/deepseek-r1",
-      "meta-llama/llama-3.1-70b-instruct",
-      "qwen/qwen2.5-72b-instruct",
-      "mistralai/mistral-large-2",
+      "openai/gpt-5",
+      "anthropic/claude-sonnet-4",
+      "google/gemini-2.5-flash",
     ],
     []
   );
