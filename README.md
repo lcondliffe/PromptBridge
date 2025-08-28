@@ -21,9 +21,11 @@ First, run the development server:
 ```bash
 pnpm install
 cp .env.example .env
-# Set NEXTAUTH_SECRET and DATABASE_URL
+# Set NEXTAUTH_SECRET and DATABASE_URL (and optionally NEXTAUTH_URL)
 pnpm dev
 ```
+
+During `pnpm dev` and `pnpm start`, the app will automatically ensure the database schema exists by running `prisma db push` on startup (idempotent). If the DB is unavailable, startup continues and you can retry later.
 
 Open [http://localhost:3000](http://localhost:3000) with your browser.
 
@@ -67,10 +69,12 @@ pnpm dev
 ```
 
 Quick test:
-- Visit `/login`. If no users exist, you'll be prompted to create the initial admin. Otherwise, sign in.
+- Visit `/login`. If the database is empty (no users), the page will prompt you to create the initial admin. Otherwise, it shows the sign-in form.
 - After signing in, visit `/history` to browse and manage your chat history.
 
 ## Container build and run
+
+This repo’s runtime container automatically runs `prisma db push` on startup to create the schema if it’s missing. This is safe to run repeatedly. If the schema deployment fails (e.g., DB unavailable), the container exits with a non-zero status so orchestrators can restart it.
 
 This repo includes a Dockerfile that produces a slim, standalone Next.js server image.
 
@@ -97,3 +101,7 @@ Notes:
 - The image uses Node 20 (Debian bookworm-slim) and runs as a non-root user.
 - The build leverages Next.js `output: 'standalone'` to keep runtime small.
 - For local DB, run `docker compose up -d db`.
+- On container start, a lightweight entrypoint executes `prisma db push` using the bundled Prisma CLI and your `DATABASE_URL`.
+
+### Future improvement (TODO)
+Migrate from `prisma db push` to Prisma Migrations (`prisma migrate deploy`) for production-grade, versioned schema management.

@@ -52,8 +52,18 @@ COPY --from=builder /app/.next/static ./.next/static
 # Static assets
 COPY --from=builder /app/public ./public
 
+# Prisma CLI and schema for runtime db push
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/packages/api/prisma ./packages/api/prisma
+
+# Entrypoint that runs prisma db push then starts the server
+COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Use the non-root node user provided by the base image
 USER node
 
 EXPOSE 3000
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
