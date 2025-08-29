@@ -40,12 +40,19 @@ async function main() {
       env: process.env,
     });
 
-    child.on("exit", (code) => {
-      if (code === 0) {
+    child.on("error", (err) => {
+      console.warn("[db-init] Failed to spawn Prisma CLI:", err);
+      resolve();
+    });
+
+    child.on("exit", (code, signal) => {
+      if (code === 0 && !signal) {
         console.log("[db-init] Schema is up to date.");
       } else {
         console.warn(`
-[db-init] WARN: prisma db push exited with code ${code}.\nThis may be fine if the DB is unavailable; the app will continue to start.\n`);
+[db-init] WARN: prisma db push exited with code ${code ?? "null"}${signal ? ` (signal ${signal})` : ""}.
+This may be fine if the DB is unavailable; the app will continue to start.
+`);
       }
       resolve();
     });
