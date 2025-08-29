@@ -4,8 +4,10 @@
   "private": true,
   "packageManager": "pnpm@10.15.0",
   "scripts": {
+    "predev": "node scripts/db-init.mjs",
     "dev": "next dev",
     "build": "pnpm prisma:generate && next build",
+    "prestart": "node scripts/db-init.mjs",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "pnpm prisma:generate",

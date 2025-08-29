@@ -21,9 +21,11 @@ First, run the development server:
 ```bash
 pnpm install
 cp .env.example .env
-# Set NEXTAUTH_SECRET and DATABASE_URL
+# Set AUTH_SECRET and DATABASE_URL (and optionally AUTH_URL)
 pnpm dev
 ```
+
+During `pnpm dev` and `pnpm start`, the app will automatically ensure the database schema exists by running `prisma db push` on startup (idempotent). If the DB is unavailable, startup continues and you can retry later.
 
 Open [http://localhost:3000](http://localhost:3000) with your browser.
 
@@ -51,49 +53,84 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 Local setup:
 
 ```bash
-# Start Postgres
-docker compose up -d db
+# (macOS only) ensure the Podman VM is running
+podman machine start
 
-# Install deps and push schema
+# Start Postgres locally via Podman Compose
+podman compose up -d db
+
+# Install deps
 pnpm install
 cp .env.example .env
 # Edit .env to set NEXTAUTH_SECRET (random string)
 
-# Create DB schema (no data loss in dev):
-pnpm prisma:db:push
-
-# Run app
+# Option A (dev server): run the app locally
 pnpm dev
+
+# Option B (containers): run the full stack with Podman Compose (see below)
 ```
 
 Quick test:
-- Visit `/login`. If no users exist, you'll be prompted to create the initial admin. Otherwise, sign in.
+- Visit `/login`. If the database is empty (no users), the page will prompt you to create the initial admin. Otherwise, it shows the sign-in form.
 - After signing in, visit `/history` to browse and manage your chat history.
 
-## Container build and run
+## Run with Podman Compose (default)
 
-This repo includes a Dockerfile that produces a slim, standalone Next.js server image.
-
-Build locally:
+Use Podman Compose to run the full stack locally (database + app). The compose file includes a one-off `migrate` service that applies the Prisma schema before the app starts.
 
 ```bash
-docker build -t promptbridge:local .
+# 1) Start the Podman VM (macOS)
+podman machine start
+
+# 2) Build images (first time or after changes)
+podman compose build app migrate
+
+# 3) Start the database and wait until healthy
+podman compose up -d db
+
+# 4) Apply the Prisma schema once (idempotent)
+podman compose run --rm migrate
+
+# 5) Start the app
+podman compose up -d app
+
+# View logs / status
+podman compose ps
+podman compose logs --tail=200 app
+
+# Stop everything
+podman compose down
 ```
 
-Run locally:
+Notes:
+- Podman is the default tooling. If you prefer Docker, swap `podman` for `docker` in the commands above.
+- The runtime container no longer runs `prisma db push` automatically. Run the one-off `migrate` job as shown.
+- The image uses Node 20 (Debian bookworm-slim), runs as a non-root user, and leverages Next.js `output: 'standalone'` to keep the runtime small.
+- If you hit OOM during image build (exit code 137), increase Podman VM resources:
+  ```bash
+  podman machine stop
+  podman machine set --memory 6144 --cpus 3
+  podman machine start
+  ```
 
+## Single-image build and run (optional)
+You can also run the app container by itself. Ensure your database is reachable and has the schema applied (via `podman compose run --rm migrate` or `pnpm prisma:db:push`).
+
+Build:
 ```bash
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/promptbridge \
+podman build -t promptbridge:local .
+```
+Run (pointing at a host Postgres):
+```bash
+podman run --rm -p 3000:3000 \
+  -e DATABASE_URL=postgresql://postgres:postgres@host.containers.internal:5432/promptbridge \
   -e NEXTAUTH_SECRET=replace-me \
   -e NEXTAUTH_URL=http://localhost:3000 \
   -e NEXT_PUBLIC_API_BASE_URL=/api \
   promptbridge:local
 ```
 
-Open http://localhost:3000 and set your OpenRouter API key in the UI. No server-side secrets are required.
+Open http://localhost:3000 and set your OpenRouter API key in the UI.
 
-Notes:
-- The image uses Node 20 (Debian bookworm-slim) and runs as a non-root user.
-- The build leverages Next.js `output: 'standalone'` to keep runtime small.
-- For local DB, run `docker compose up -d db`.
+### Future improvement (TODO)
+Switch from `prisma db push` to Prisma Migrations (`prisma migrate deploy`) for production-grade, versioned schema management. The compose `migrate` service can be updated accordingly.
