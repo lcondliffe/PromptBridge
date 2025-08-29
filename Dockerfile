@@ -20,7 +20,10 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # --- Builder stage: build Next.js app ---
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
-RUN corepack enable
+RUN corepack enable \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Reuse previously installed node_modules
 COPY --from=deps /app/node_modules ./node_modules
@@ -40,6 +43,11 @@ RUN pnpm build
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
+# Install OpenSSL runtime needed by Prisma engine
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
@@ -52,18 +60,8 @@ COPY --from=builder /app/.next/static ./.next/static
 # Static assets
 COPY --from=builder /app/public ./public
 
-# Prisma CLI and schema for runtime db push
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/packages/api/prisma ./packages/api/prisma
-
-# Entrypoint that runs prisma db push then starts the server
-COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
-
 # Use the non-root node user provided by the base image
 USER node
 
 EXPOSE 3000
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -33,6 +33,18 @@ services:
       db:
         condition: service_healthy
 
+  migrate:
+    build:
+      context: .
+      target: builder
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/promptbridge
+    depends_on:
+      db:
+        condition: service_healthy
+    command: pnpm prisma:db:push
+    restart: "no"
+
 volumes:
   db_data:
 
