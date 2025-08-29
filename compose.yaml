@@ -28,7 +28,7 @@ services:
       DATABASE_URL: postgres://postgres:postgres@db:5432/promptbridge
       AUTH_URL: http://localhost:3000
       AUTH_TRUST_HOST: "true"
-     AUTH_SECRET: change-me
+      AUTH_SECRET: change-me
       NEXT_PUBLIC_API_BASE_URL: /api
     depends_on:
       db:
