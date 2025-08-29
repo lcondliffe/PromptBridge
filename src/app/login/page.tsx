@@ -17,7 +17,7 @@ export default function LoginPage() {
     fetch("/api/status")
       .then((r) => r.json())
       .then((d) => !cancelled && setHasUsers(!!d?.hasUsers))
-      .catch(() => !cancelled && setHasUsers(true));
+      .catch(() => !cancelled && setHasUsers(false));
     return () => {
       cancelled = true;
     };
