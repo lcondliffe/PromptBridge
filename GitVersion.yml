@@ -1,6 +1,9 @@
 mode: ContinuousDelivery
+commit-message-incrementing: Enabled
+major-version-bump-message: '(?i)\+semver:\s?(breaking|major)'
+minor-version-bump-message: '(?i)\+semver:\s?(feature|minor)'
 branches:
-  database_init:
-    regex: ^database_init$
+  main:
+    regex: ^main$
     increment: Patch
 
