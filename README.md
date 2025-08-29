@@ -74,6 +74,34 @@ Quick test:
 - Visit `/login`. If the database is empty (no users), the page will prompt you to create the initial admin. Otherwise, it shows the sign-in form.
 - After signing in, visit `/history` to browse and manage your chat history.
 
+## Push the DB schema with pnpm
+You can apply the Prisma schema to any reachable Postgres instance using the pnpm script in this repo. Avoid inlining secrets; use environment variables.
+
+Example (remote or local Postgres):
+
+```bash
+# Replace placeholders and set connection details
+DB_HOST={{DB_HOST}}        # e.g. db.example.com or 127.0.0.1
+DB_USER=promptbridge
+DB_NAME=promptbridge
+DB_PASSWORD={{DB_PASSWORD}}
+
+# Optional: enforce SSL for managed services
+# (omit if your server doesn't require SSL)
+SSL_QUERY="&sslmode=require"
+
+export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}?schema=public${SSL_QUERY}"
+
+# Push schema (idempotent). This will create/update tables to match Prisma models.
+pnpm prisma:db:push
+```
+
+Notes:
+- For the local compose database from this repo, you can use:
+  - `export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/promptbridge`
+  - `pnpm prisma:db:push`
+- For production, prefer versioned migrations (prisma migrate deploy). See TODO below.
+
 ## Run with Podman Compose (default)
 
 Use Podman Compose to run the full stack locally (database + app). The compose file includes a one-off `migrate` service that applies the Prisma schema before the app starts.
