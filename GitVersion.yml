@@ -1,0 +1,6 @@
+mode: ContinuousDelivery
+branches:
+  database_init:
+    regex: ^database_init$
+    increment: Patch
+
