@@ -21,7 +21,7 @@ First, run the development server:
 ```bash
 pnpm install
 cp .env.example .env
-# Set NEXTAUTH_SECRET and DATABASE_URL (and optionally NEXTAUTH_URL)
+# Set AUTH_SECRET and DATABASE_URL (and optionally AUTH_URL)
 pnpm dev
 ```
 
