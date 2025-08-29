@@ -60,6 +60,9 @@ COPY --from=builder /app/.next/static ./.next/static
 # Static assets
 COPY --from=builder /app/public ./public
 
+# Ensure Next.js cache dir is writable by the node user
+RUN mkdir -p /app/.next/cache && chown -R node:node /app/.next
+
 # Use the non-root node user provided by the base image
 USER node
 
