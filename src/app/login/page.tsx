@@ -94,7 +94,7 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="text-sm text-center">
-          Don't have an account?
+          Don&apos;t have an account?
           <a
             className="underline ml-1"
             href="/register"
