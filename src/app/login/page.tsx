@@ -59,38 +59,55 @@ export default function LoginPage() {
   const buttonText = loading ? (hasUsers === false ? "Creating..." : "Signing in...") : heading;
 
   return (
-    <form onSubmit={onSubmit} className="w-full space-y-4">
-      <h1 className="text-2xl font-semibold">{heading}</h1>
-      <div className="space-y-1">
-        <label className="block text-sm">Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+    <div>
+      <div className="w-full max-w-sm space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
+          <h1 className="text-2xl font-semibold">{heading}</h1>
+          <div className="space-y-1">
+            <label className="block text-sm">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+              required
+              minLength={6}
+            />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button
+            type="submit"
+            className="w-full bg-black text-white rounded px-3 py-2 disabled:opacity-60"
+            disabled={loading || hasUsers === null}
+          >
+            {buttonText}
+          </button>
+        </form>
+        <p className="text-sm text-center">
+          Don&apos;t have an account?
+          <a
+            className="underline ml-1"
+            href="/register"
+            onClick={() => {
+              // Also trigger client-side navigation for snappy UX
+              router.push("/register");
+            }}
+          >
+            Sign up
+          </a>
+        </p>
       </div>
-      <div className="space-y-1">
-        <label className="block text-sm">Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded px-3 py-2"
-          required
-          minLength={6}
-        />
-      </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        className="w-full bg-black text-white rounded px-3 py-2 disabled:opacity-60"
-        disabled={loading || hasUsers === null}
-      >
-        {buttonText}
-      </button>
-    </form>
+    </div>
   );
 }
 
