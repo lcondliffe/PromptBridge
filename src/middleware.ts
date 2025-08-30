@@ -6,7 +6,7 @@ export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Public page path(s)
-  const isPublicPage = pathname === "/login";
+  const isPublicPage = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   // Public API endpoints (pre-auth)
   const isPublicApi =

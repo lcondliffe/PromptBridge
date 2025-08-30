@@ -15,12 +15,12 @@ export async function POST(req: Request) {
   }
   const { email, password } = parsed.data;
   const userCount = await countUsers();
-  if (userCount > 0) {
-    return NextResponse.json({ error: "Registration is disabled" }, { status: 403 });
-  }
   const existing = await getUserByEmail(email);
   if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 });
-  await createUser(email, password, { role: "ADMIN" });
+
+  // First user becomes admin, subsequent users are regular users
+  const role = userCount === 0 ? "ADMIN" : "USER";
+  await createUser(email, password, { role });
   return NextResponse.json({ ok: true });
 }
 
