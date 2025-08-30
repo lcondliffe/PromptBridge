@@ -6,4 +6,4 @@ branches:
   main:
     regex: ^main$
     increment: Patch
-
+    label: ''
