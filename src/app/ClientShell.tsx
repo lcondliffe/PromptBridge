@@ -22,8 +22,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const [desktopCollapsed, setDesktopCollapsed] = useLocalStorage<boolean>("sidebar_collapsed", false);
   const pathname = usePathname();
 
-  // Minimal chrome for auth pages (/login)
-  if (pathname === "/login") {
+  // Minimal chrome for auth pages (/login, /register)
+  if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
     return (
       <div className="min-h-screen bg-neutral-950 text-zinc-100 flex flex-col items-center">
         <header className="w-full flex justify-center py-6">
