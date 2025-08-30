@@ -34,7 +34,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
             <h1 className="text-2xl font-semibold tracking-tight">PromptBridge</h1>
           </div>
         </header>
-        <main className="w-full max-w-sm px-6 pb-8">{children}</main>
+        <main className="w-full max-w-sm px-6 pb-8 mx-auto">{children}</main>
       </div>
     );
   }

@@ -59,7 +59,7 @@ export default function LoginPage() {
   const buttonText = loading ? (hasUsers === false ? "Creating..." : "Signing in...") : heading;
 
   return (
-    <div className="min-h-dvh flex items-center justify-center p-6">
+    <div>
       <div className="w-full max-w-sm space-y-4">
         <form onSubmit={onSubmit} className="space-y-4">
           <h1 className="text-2xl font-semibold">{heading}</h1>
