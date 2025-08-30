@@ -101,6 +101,7 @@ jobs:
     outputs:
       semVer: ${{ steps.gitversion.outputs.SemVer }}
       fullSemVer: ${{ steps.gitversion.outputs.FullSemVer }}
+      majorMinorPatch: ${{ steps.gitversion.outputs.MajorMinorPatch }}
     steps:
       - name: Checkout (full)
         uses: actions/checkout@v4
@@ -120,6 +121,7 @@ jobs:
         run: |
           echo "SemVer: ${{ steps.gitversion.outputs.SemVer }}"
           echo "FullSemVer: ${{ steps.gitversion.outputs.FullSemVer }}"
+          echo "MajorMinorPatch: ${{ steps.gitversion.outputs.MajorMinorPatch }}"
 
   build_scan_and_push:
     name: Build - Docker Image
@@ -146,14 +148,14 @@ jobs:
           context: .
           file: ./Dockerfile
           load: true
-          tags: ${{ steps.vars.outputs.image }}:${{ needs.gitversion.outputs.semVer }}
+          tags: ${{ steps.vars.outputs.image }}:${{ needs.gitversion.outputs.majorMinorPatch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Trivy scan (fail on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: ${{ steps.vars.outputs.image }}:${{ needs.gitversion.outputs.semVer }}
+          image-ref: ${{ steps.vars.outputs.image }}:${{ needs.gitversion.outputs.majorMinorPatch }}
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
@@ -180,7 +182,7 @@ jobs:
         with:
           images: ${{ steps.vars.outputs.image }}
           tags: |
-            type=raw,value=${{ needs.gitversion.outputs.semVer }}
+            type=raw,value=${{ needs.gitversion.outputs.majorMinorPatch }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: "Build and push (multi-arch: amd64, arm64)"
