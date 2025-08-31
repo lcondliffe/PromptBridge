@@ -499,7 +499,7 @@ export default function Home() {
     return (
       <div className="space-y-2 text-sm min-h-[140px]">
         {visible.map((m, idx) => (
-          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-start'}`}>
             <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
               {m.role === 'assistant' ? (
                 <Markdown text={m.content} />
