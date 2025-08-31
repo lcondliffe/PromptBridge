@@ -20,9 +20,12 @@ test('bootstrap auth state', async ({ page, context }) => {
 
   if (!json?.hasUsers) {
     // First run: go through the Register UI (it will create initial admin)
-    await page.goto('/register');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
+    await page.goto('/register', { waitUntil: 'networkidle' });
+    const emailInput = page.locator('input[type="email"]');
+    const passwordInput = page.locator('input[type="password"]');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.fill(email);
+    await passwordInput.fill(password);
     await page.getByRole('button', { name: /create account/i }).click();
   } else {
     // Users exist already: ensure our test user exists via API, then sign in
@@ -34,9 +37,12 @@ test('bootstrap auth state', async ({ page, context }) => {
     if (!(res.ok() || res.status() === 409)) {
       throw new Error(`Failed to ensure test user exists: ${res.status()} ${await res.text()}`);
     }
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
+    await page.goto('/login', { waitUntil: 'networkidle' });
+    const emailInput = page.locator('input[type="email"]');
+    const passwordInput = page.locator('input[type="password"]');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.fill(email);
+    await passwordInput.fill(password);
     await page.getByRole('button', { name: /sign in/i }).click();
   }
 
