@@ -108,6 +108,16 @@ export default function Home() {
   // Expanded (maximized) result pane
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Per-visit session state
+  const [showResults, setShowResults] = useState(false); // hide tiles until first send
+  const sessionStartIndexRef = useRef<Record<string, number>>({}); // per-model offset to hide previous messages
+  const [sessionConvId, setSessionConvId] = useState<string | null>(null); // server-side conversation for this session
+
+  // Rehydrate session conversation from last active conversation (survives reloads)
+  useEffect(() => {
+    if (!sessionConvId && activeConversationId) setSessionConvId(activeConversationId);
+  }, [activeConversationId, sessionConvId]);
+
   const anyRunning = useMemo(() => Object.values(panes).some((p) => p.running), [panes]);
 
   // Manage body scroll lock and Escape to close when expanded
@@ -229,16 +239,22 @@ export default function Home() {
     // After tiles render their new draft bubbles, scroll each to the start anchor
     setScrollToStartIds(selectedModels);
 
-    // Ensure a persisted conversation exists and persist the user message
-    // Only reuse the activeConversationId if this chat already has local history for the selected models.
-    // If there's no local history for the selected models, treat this as a fresh chat and start a new conversation.
-    const isFreshChat = selectedModels.every((m) => (conversations[m] || []).length === 0);
-    let convIdLocal = isFreshChat ? null : activeConversationId;
+    // Mark session start only for models that don't have one yet; this preserves context across sends
+    for (const m of selectedModels) {
+      if (sessionStartIndexRef.current[m] === undefined) {
+        sessionStartIndexRef.current[m] = (conversations[m] || []).length;
+      }
+    }
+    setShowResults(true);
+
+    // Ensure a server-side conversation exists for this session and persist the user message
+    let convIdLocal = sessionConvId;
     try {
       if (!convIdLocal) {
         const title = inputPrompt.trim().split("\n")[0].slice(0, 80) || "Untitled";
         const conv = await sdk.conversations.create(title);
         convIdLocal = conv.id;
+        setSessionConvId(convIdLocal);
         setActiveConversationId(convIdLocal);
       }
       // Persist the user message for this turn
@@ -254,13 +270,15 @@ export default function Home() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    // Prepare messages per model from current conversations snapshot
+    // Prepare messages per model from current conversations snapshot (session-only)
     const msgsByModel: Record<string, ChatMessage[]> = {};
     for (const model of selectedModels) {
-      const history = conversations[model] || [];
+      const base = conversations[model] || [];
+      const startIdx = sessionStartIndexRef.current[model] ?? base.length;
+      const sessionOnly = base.slice(startIdx);
       const msgs: ChatMessage[] = [];
-      if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
-      msgs.push(...history, { role: 'user', content: finalPrompt });
+      if (sessionOnly.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+      msgs.push(...sessionOnly, { role: 'user', content: finalPrompt });
       msgsByModel[model] = msgs;
     }
 
@@ -312,8 +330,9 @@ export default function Home() {
             });
             // Persist assistant message with model tag
             try {
-              if (convIdLocal) {
-                void sdk.conversations.messages.create(convIdLocal, { role: "assistant", content: full || "", model });
+              const idForPersist = convIdLocal || sessionConvId;
+              if (idForPersist) {
+                void sdk.conversations.messages.create(idForPersist, { role: "assistant", content: full || "", model });
               }
             } catch {}
             setPanes((p) => ({ ...p, [model]: { ...(p[model] || { draft: '' }), running: false, draft: '' } }));
@@ -348,6 +367,8 @@ export default function Home() {
     controllersRef.current = {} as Record<string, AbortController>;
     setConversations({});
     setPanes({});
+    sessionStartIndexRef.current = {} as Record<string, number>;
+    setSessionConvId(null);
     setActiveConversationId(null);
   };
 
@@ -467,7 +488,9 @@ export default function Home() {
 
   // Render transcript as chat bubbles, with a live draft bubble when streaming
   const renderTranscript = (modelId: string) => {
-    const hist = conversations[modelId] || [];
+    const all = conversations[modelId] || [];
+    const startIdx = sessionStartIndexRef.current[modelId] ?? all.length;
+    const hist = all.slice(startIdx);
     let skippedFirstUser = false;
     const visible = hist.filter((m) => {
       if (m.role === 'user' && !skippedFirstUser) { skippedFirstUser = true; return false; }
@@ -523,7 +546,7 @@ export default function Home() {
       return next;
     });
     try {
-      const convId = activeConversationId;
+      const convId = sessionConvId;
       if (convId) {
         await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
       }
@@ -560,7 +583,7 @@ export default function Home() {
             return next;
           });
           try {
-            const convId2 = activeConversationId;
+            const convId2 = sessionConvId;
             if (convId2) {
               void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
             }
@@ -938,7 +961,7 @@ export default function Home() {
         </section>
 
         {/* Results */}
-        {selectedModels.length > 0 && (
+        {showResults && selectedModels.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-end">
               <div role="toolbar" aria-label="Layout" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">

@@ -6,11 +6,8 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 async function main() {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    console.log("[db-init] DATABASE_URL is not set; skipping schema push.");
-    return;
-  }
+  // Do NOT bail early if DATABASE_URL isn't in process.env; Prisma can load .env itself.
+  // This makes local dev more robust when .env is present but not preloaded by Node.
 
   const schemaPath = path.resolve(process.cwd(), "packages/api/prisma/schema.prisma");
   if (!existsSync(schemaPath)) {
