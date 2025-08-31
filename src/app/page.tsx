@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChat } from "@/lib/openrouter";
@@ -210,6 +211,54 @@ export default function Home() {
   }, [apiKey, maybeInitSelections, models.length]);
 
   const [uiError, setUiError] = useState<string>("");
+
+  // Resume conversation from history via query param (?conv=ID)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    try {
+      const conv = searchParams.get('conv');
+      if (!conv) return;
+      if (sessionConvId === conv) { setShowResults(true); return; }
+      (async () => {
+        try {
+          const msgs = await sdk.conversations.messages.list(conv);
+          // Build per-model transcripts. User messages apply to all models; assistant only to its model.
+          const perModel: Record<string, ChatMessage[]> = {};
+          const userBuffer: ChatMessage[] = [];
+          const modelSet = new Set<string>();
+          for (const m of msgs) {
+            if (m.role === 'user') {
+              const u = { role: 'user', content: m.content } as ChatMessage;
+              userBuffer.push(u);
+              for (const model of Object.keys(perModel)) perModel[model].push(u);
+            } else if (m.role === 'assistant' && m.model) {
+              modelSet.add(m.model);
+              if (!perModel[m.model]) {
+                perModel[m.model] = [...userBuffer];
+              }
+              perModel[m.model].push({ role: 'assistant', content: m.content });
+            }
+          }
+          const modelsArr = Array.from(modelSet);
+          setSelectedModels(modelsArr);
+          setConversations((prev) => {
+            const next = { ...prev } as Record<string, ChatMessage[]>;
+            for (const model of modelsArr) next[model] = perModel[model] || [];
+            return next;
+          });
+          // Ensure transcripts are visible
+          sessionStartIndexRef.current = {} as Record<string, number>;
+          for (const model of modelsArr) sessionStartIndexRef.current[model] = 0;
+          setSessionConvId(conv);
+          setActiveConversationId(conv);
+          setShowResults(true);
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const onSend = async (inputPrompt: string) => {
     if (anyRunning) return; // Disabled while any model is running
