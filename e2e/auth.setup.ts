@@ -25,7 +25,15 @@ test('bootstrap auth state', async ({ page, context }) => {
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: /create account/i }).click();
   } else {
-    // Users exist: sign in via Login UI
+    // Users exist already: ensure our test user exists via API, then sign in
+    const res = await page.request.post('/api/register', {
+      data: { email, password },
+      headers: { 'content-type': 'application/json' },
+    });
+    // 200 OK creates user, 409 if already exists — both are fine
+    if (!(res.ok() || res.status() === 409)) {
+      throw new Error(`Failed to ensure test user exists: ${res.status()} ${await res.text()}`);
+    }
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
