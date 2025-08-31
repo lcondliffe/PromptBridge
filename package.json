@@ -14,7 +14,9 @@
     "prisma:generate": "prisma generate --schema packages/api/prisma/schema.prisma",
     "prisma:db:push": "prisma db push --schema packages/api/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --name init --schema packages/api/prisma/schema.prisma",
-    "prisma:studio": "prisma studio --schema packages/api/prisma/schema.prisma"
+    "prisma:studio": "prisma studio --schema packages/api/prisma/schema.prisma",
+    "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --reporter=github"
   },
   "dependencies": {
     "lucide-react": "^0.541.0",
@@ -44,7 +46,8 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "prisma": "^5.22.0",
-    "@types/bcryptjs": "^2.4.6"
+    "@types/bcryptjs": "^2.4.6",
+    "@playwright/test": "^1.48.2"
   },
   "pnpm": {
     "overrides": {
