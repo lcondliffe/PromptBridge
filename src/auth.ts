@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { getUserByEmail, verifyPassword } from "@promptbridge/api";
 
+export const runtime = 'nodejs';
+
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -49,6 +51,7 @@ export const {
     },
   },
   pages: { signIn: "/login" },
-  secret: process.env.NEXTAUTH_SECRET,
+  // Support both AUTH_SECRET (NextAuth v5 default) and legacy NEXTAUTH_SECRET envs
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 });
 

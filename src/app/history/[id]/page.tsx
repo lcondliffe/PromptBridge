@@ -68,12 +68,21 @@ export default function HistoryDetailPage() {
             <ArrowLeft className="size-3.5" /> Back
           </Link>
         </div>
-        <button
-          className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10"
-          onClick={onDelete}
-        >
-          <Trash2 className="size-3.5" /> Delete
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/?conv=${conversationId}`}
+            className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10"
+            aria-label="Resume in main"
+          >
+            Resume in main
+          </Link>
+          <button
+            className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="size-3.5" /> Delete
+          </button>
+        </div>
       </div>
 
       {error && (

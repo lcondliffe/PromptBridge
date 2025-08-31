@@ -27,6 +27,17 @@ function getApiBase(): string {
   );
 }
 
+class ApiError extends Error {
+  status: number;
+  body?: string;
+  constructor(status: number, body?: string) {
+    super(body || `Request failed: ${status}`);
+    this.status = status;
+    this.body = body;
+    this.name = "ApiError";
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${getApiBase()}${path}`, {
     credentials: "include",
@@ -37,8 +48,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    let body: string | undefined;
+    try {
+      body = await res.text();
+    } catch {}
+    throw new ApiError(res.status, body);
   }
   return res.json();
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChat } from "@/lib/openrouter";
@@ -37,7 +38,7 @@ function Tip({ text, children }: { text: string; children: ReactNode }) {
 const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
 const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-export default function Home() {
+function HomeInner() {
 // API key handling (shared across app)
   const { apiKey } = useApiKey();
 
@@ -107,6 +108,16 @@ export default function Home() {
 
   // Expanded (maximized) result pane
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Per-visit session state
+  const [showResults, setShowResults] = useState(false); // hide tiles until first send
+  const sessionStartIndexRef = useRef<Record<string, number>>({}); // per-model offset to hide previous messages
+  const [sessionConvId, setSessionConvId] = useState<string | null>(null); // server-side conversation for this session
+
+  // Rehydrate session conversation from last active conversation (survives reloads)
+  useEffect(() => {
+    if (!sessionConvId && activeConversationId) setSessionConvId(activeConversationId);
+  }, [activeConversationId, sessionConvId]);
 
   const anyRunning = useMemo(() => Object.values(panes).some((p) => p.running), [panes]);
 
@@ -201,6 +212,54 @@ export default function Home() {
 
   const [uiError, setUiError] = useState<string>("");
 
+  // Resume conversation from history via query param (?conv=ID)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    try {
+      const conv = searchParams.get('conv');
+      if (!conv) return;
+      if (sessionConvId === conv) { setShowResults(true); return; }
+      (async () => {
+        try {
+          const msgs = await sdk.conversations.messages.list(conv);
+          // Build per-model transcripts. User messages apply to all models; assistant only to its model.
+          const perModel: Record<string, ChatMessage[]> = {};
+          const userBuffer: ChatMessage[] = [];
+          const modelSet = new Set<string>();
+          for (const m of msgs) {
+            if (m.role === 'user') {
+              const u = { role: 'user', content: m.content } as ChatMessage;
+              userBuffer.push(u);
+              for (const model of Object.keys(perModel)) perModel[model].push(u);
+            } else if (m.role === 'assistant' && m.model) {
+              modelSet.add(m.model);
+              if (!perModel[m.model]) {
+                perModel[m.model] = [...userBuffer];
+              }
+              perModel[m.model].push({ role: 'assistant', content: m.content });
+            }
+          }
+          const modelsArr = Array.from(modelSet);
+          setSelectedModels(modelsArr);
+          setConversations((prev) => {
+            const next = { ...prev } as Record<string, ChatMessage[]>;
+            for (const model of modelsArr) next[model] = perModel[model] || [];
+            return next;
+          });
+          // Ensure transcripts are visible
+          sessionStartIndexRef.current = {} as Record<string, number>;
+          for (const model of modelsArr) sessionStartIndexRef.current[model] = 0;
+          setSessionConvId(conv);
+          setActiveConversationId(conv);
+          setShowResults(true);
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const onSend = async (inputPrompt: string) => {
     if (anyRunning) return; // Disabled while any model is running
     if (!apiKey || apiKey.trim().length === 0) {
@@ -229,20 +288,29 @@ export default function Home() {
     // After tiles render their new draft bubbles, scroll each to the start anchor
     setScrollToStartIds(selectedModels);
 
-    // Ensure a persisted conversation exists and persist the user message
-    let convIdLocal = activeConversationId;
+    // Mark session start only for models that don't have one yet; this preserves context across sends
+    for (const m of selectedModels) {
+      if (sessionStartIndexRef.current[m] === undefined) {
+        sessionStartIndexRef.current[m] = (conversations[m] || []).length;
+      }
+    }
+    setShowResults(true);
+
+    // Ensure a server-side conversation exists for this session and persist the user message
+    let convIdLocal = sessionConvId;
     try {
       if (!convIdLocal) {
         const title = inputPrompt.trim().split("\n")[0].slice(0, 80) || "Untitled";
         const conv = await sdk.conversations.create(title);
         convIdLocal = conv.id;
+        setSessionConvId(convIdLocal);
         setActiveConversationId(convIdLocal);
       }
       // Persist the user message for this turn
       await sdk.conversations.messages.create(convIdLocal!, { role: "user", content: finalPrompt });
-    } catch (e) {
-      console.error("Failed to persist user message", e);
-      // Non-fatal; continue streaming UI regardless
+    } catch (_e) {
+      // Non-fatal; continue streaming UI regardless (e.g., API unavailable or unauthenticated)
+      // Intentionally suppress console noise here to avoid alarming users during local/offline use.
     }
 
     // Parse stop strings into array
@@ -251,13 +319,15 @@ export default function Home() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    // Prepare messages per model from current conversations snapshot
+    // Prepare messages per model from current conversations snapshot (session-only)
     const msgsByModel: Record<string, ChatMessage[]> = {};
     for (const model of selectedModels) {
-      const history = conversations[model] || [];
+      const base = conversations[model] || [];
+      const startIdx = sessionStartIndexRef.current[model] ?? base.length;
+      const sessionOnly = base.slice(startIdx);
       const msgs: ChatMessage[] = [];
-      if (history.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
-      msgs.push(...history, { role: 'user', content: finalPrompt });
+      if (sessionOnly.length === 0) msgs.push({ role: 'system', content: SYSTEM_PROMPT });
+      msgs.push(...sessionOnly, { role: 'user', content: finalPrompt });
       msgsByModel[model] = msgs;
     }
 
@@ -309,8 +379,9 @@ export default function Home() {
             });
             // Persist assistant message with model tag
             try {
-              if (convIdLocal) {
-                void sdk.conversations.messages.create(convIdLocal, { role: "assistant", content: full || "", model });
+              const idForPersist = convIdLocal || sessionConvId;
+              if (idForPersist) {
+                void sdk.conversations.messages.create(idForPersist, { role: "assistant", content: full || "", model });
               }
             } catch {}
             setPanes((p) => ({ ...p, [model]: { ...(p[model] || { draft: '' }), running: false, draft: '' } }));
@@ -345,6 +416,8 @@ export default function Home() {
     controllersRef.current = {} as Record<string, AbortController>;
     setConversations({});
     setPanes({});
+    sessionStartIndexRef.current = {} as Record<string, number>;
+    setSessionConvId(null);
     setActiveConversationId(null);
   };
 
@@ -352,6 +425,12 @@ export default function Home() {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const autoResize = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   // Auto-resize the compose textarea as content grows/shrinks
   useEffect(() => {
@@ -458,7 +537,9 @@ export default function Home() {
 
   // Render transcript as chat bubbles, with a live draft bubble when streaming
   const renderTranscript = (modelId: string) => {
-    const hist = conversations[modelId] || [];
+    const all = conversations[modelId] || [];
+    const startIdx = sessionStartIndexRef.current[modelId] ?? all.length;
+    const hist = all.slice(startIdx);
     let skippedFirstUser = false;
     const visible = hist.filter((m) => {
       if (m.role === 'user' && !skippedFirstUser) { skippedFirstUser = true; return false; }
@@ -467,7 +548,7 @@ export default function Home() {
     return (
       <div className="space-y-2 text-sm min-h-[140px]">
         {visible.map((m, idx) => (
-          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-start'}`}>
             <div className={`max-w-full rounded-lg px-3 py-2 border border-white/10 ${m.role === 'user' ? 'bg-indigo-600/20' : 'bg-white/5'}`}>
               {m.role === 'assistant' ? (
                 <Markdown text={m.content} />
@@ -514,7 +595,7 @@ export default function Home() {
       return next;
     });
     try {
-      const convId = activeConversationId;
+      const convId = sessionConvId;
       if (convId) {
         await sdk.conversations.messages.create(convId, { role: 'user', content: finalText });
       }
@@ -551,7 +632,7 @@ export default function Home() {
             return next;
           });
           try {
-            const convId2 = activeConversationId;
+            const convId2 = sessionConvId;
             if (convId2) {
               void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
             }
@@ -565,6 +646,12 @@ export default function Home() {
     controllersRef.current[id] = handle.abortController;
     handle.promise.catch(() => {});
     setReplyInputs((r) => ({ ...r, [id]: '' }));
+    try {
+      const el = replyRefs.current[id];
+      if (el) {
+        el.style.height = "auto";
+      }
+    } catch {}
   };
 
   return (
@@ -923,7 +1010,7 @@ export default function Home() {
         </section>
 
         {/* Results */}
-        {selectedModels.length > 0 && (
+        {showResults && selectedModels.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-end">
               <div role="toolbar" aria-label="Layout" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
@@ -968,7 +1055,7 @@ export default function Home() {
                       </button>
                     </div>
                   </div>
-                  <div className="max-h-[320px] overflow-auto pr-1">
+                  <div className={resultsLayout === 'stacked' ? 'pr-1' : 'max-h-[320px] overflow-auto pr-1'}>
                     {renderTranscript(id)}
                   </div>
                   {panes[id]?.error && (
@@ -998,10 +1085,12 @@ export default function Home() {
                   </div>
                   <div className="mt-3 flex items-start gap-2">
                     <textarea
-                      className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                      ref={(el) => { replyRefs.current[id] = el; }}
+                      className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 overflow-hidden resize-none text-sm"
                       placeholder="Reply to this model…"
                       value={replyInputs[id] || ''}
                       onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
+                      onInput={(e) => autoResize(e.currentTarget)}
                       disabled={anyRunning}
                       rows={2}
                       onKeyDown={(e) => {
@@ -1013,12 +1102,13 @@ export default function Home() {
                       }}
                     />
                     <button
-                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                      className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                      aria-label="Send reply"
                       type="button"
                       onClick={() => { void sendReply(id); }}
                       disabled={anyRunning || !(replyInputs[id] || '').trim()}
                     >
-                      <Send className="size-3.5" /> Reply
+                      <Send className="size-5 opacity-90" />
                     </button>
                   </div>
                 </div>
@@ -1076,10 +1166,12 @@ export default function Home() {
               )}
               <div className="mt-3 flex items-start gap-2">
                 <textarea
-                  className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                  ref={(el) => { if (expandedId) replyRefs.current[expandedId] = el; }}
+                  className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 overflow-hidden resize-none text-sm"
                   placeholder="Reply to this model…"
                   value={replyInputs[expandedId] || ''}
                   onChange={(e) => setReplyInputs((r) => ({ ...r, [expandedId]: e.target.value }))}
+                  onInput={(e) => autoResize(e.currentTarget)}
                   disabled={anyRunning}
                   rows={2}
                   onKeyDown={(e) => {
@@ -1092,12 +1184,13 @@ export default function Home() {
                   }}
                 />
                 <button
-                  className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                  aria-label="Send reply"
                   type="button"
                   onClick={() => { const id = expandedId as string; void sendReply(id); }}
                   disabled={anyRunning || !(replyInputs[expandedId] || '').trim()}
                 >
-                  <Send className="size-3.5" /> Reply
+                  <Send className="size-5 opacity-90" />
                 </button>
               </div>
             </div>
@@ -1109,5 +1202,13 @@ export default function Home() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
   );
 }
