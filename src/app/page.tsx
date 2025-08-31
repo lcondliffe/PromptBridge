@@ -230,7 +230,10 @@ export default function Home() {
     setScrollToStartIds(selectedModels);
 
     // Ensure a persisted conversation exists and persist the user message
-    let convIdLocal = activeConversationId;
+    // Only reuse the activeConversationId if this chat already has local history for the selected models.
+    // If there's no local history for the selected models, treat this as a fresh chat and start a new conversation.
+    const isFreshChat = selectedModels.every((m) => (conversations[m] || []).length === 0);
+    let convIdLocal = isFreshChat ? null : activeConversationId;
     try {
       if (!convIdLocal) {
         const title = inputPrompt.trim().split("\n")[0].slice(0, 80) || "Untitled";
@@ -240,9 +243,9 @@ export default function Home() {
       }
       // Persist the user message for this turn
       await sdk.conversations.messages.create(convIdLocal!, { role: "user", content: finalPrompt });
-    } catch (e) {
-      console.error("Failed to persist user message", e);
-      // Non-fatal; continue streaming UI regardless
+    } catch (_e) {
+      // Non-fatal; continue streaming UI regardless (e.g., API unavailable or unauthenticated)
+      // Intentionally suppress console noise here to avoid alarming users during local/offline use.
     }
 
     // Parse stop strings into array
@@ -352,6 +355,12 @@ export default function Home() {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const autoResize = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   // Auto-resize the compose textarea as content grows/shrinks
   useEffect(() => {
@@ -565,6 +574,12 @@ export default function Home() {
     controllersRef.current[id] = handle.abortController;
     handle.promise.catch(() => {});
     setReplyInputs((r) => ({ ...r, [id]: '' }));
+    try {
+      const el = replyRefs.current[id];
+      if (el) {
+        el.style.height = "auto";
+      }
+    } catch {}
   };
 
   return (
@@ -968,7 +983,7 @@ export default function Home() {
                       </button>
                     </div>
                   </div>
-                  <div className="max-h-[320px] overflow-auto pr-1">
+                  <div className={resultsLayout === 'stacked' ? 'pr-1' : 'max-h-[320px] overflow-auto pr-1'}>
                     {renderTranscript(id)}
                   </div>
                   {panes[id]?.error && (
@@ -998,10 +1013,12 @@ export default function Home() {
                   </div>
                   <div className="mt-3 flex items-start gap-2">
                     <textarea
-                      className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                      ref={(el) => { replyRefs.current[id] = el; }}
+                      className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 overflow-hidden resize-none text-sm"
                       placeholder="Reply to this model…"
                       value={replyInputs[id] || ''}
                       onChange={(e) => setReplyInputs((r) => ({ ...r, [id]: e.target.value }))}
+                      onInput={(e) => autoResize(e.currentTarget)}
                       disabled={anyRunning}
                       rows={2}
                       onKeyDown={(e) => {
@@ -1013,12 +1030,13 @@ export default function Home() {
                       }}
                     />
                     <button
-                      className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                      className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                      aria-label="Send reply"
                       type="button"
                       onClick={() => { void sendReply(id); }}
                       disabled={anyRunning || !(replyInputs[id] || '').trim()}
                     >
-                      <Send className="size-3.5" /> Reply
+                      <Send className="size-5 opacity-90" />
                     </button>
                   </div>
                 </div>
@@ -1076,10 +1094,12 @@ export default function Home() {
               )}
               <div className="mt-3 flex items-start gap-2">
                 <textarea
-                  className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 resize-y"
+                  ref={(el) => { if (expandedId) replyRefs.current[expandedId] = el; }}
+                  className="flex-1 min-h-[44px] px-2 py-1.5 rounded-md border border-white/10 bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40 overflow-hidden resize-none text-sm"
                   placeholder="Reply to this model…"
                   value={replyInputs[expandedId] || ''}
                   onChange={(e) => setReplyInputs((r) => ({ ...r, [expandedId]: e.target.value }))}
+                  onInput={(e) => autoResize(e.currentTarget)}
                   disabled={anyRunning}
                   rows={2}
                   onKeyDown={(e) => {
@@ -1092,12 +1112,13 @@ export default function Home() {
                   }}
                 />
                 <button
-                  className="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white shadow hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 disabled:opacity-50"
+                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
+                  aria-label="Send reply"
                   type="button"
                   onClick={() => { const id = expandedId as string; void sendReply(id); }}
                   disabled={anyRunning || !(replyInputs[expandedId] || '').trim()}
                 >
-                  <Send className="size-3.5" /> Reply
+                  <Send className="size-5 opacity-90" />
                 </button>
               </div>
             </div>

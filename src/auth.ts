@@ -49,6 +49,7 @@ export const {
     },
   },
   pages: { signIn: "/login" },
-  secret: process.env.NEXTAUTH_SECRET,
+  // Support both AUTH_SECRET (NextAuth v5 default) and legacy NEXTAUTH_SECRET envs
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 });
 
