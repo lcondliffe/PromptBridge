@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { getUserByEmail, verifyPassword } from "@promptbridge/api";
 
+export const runtime = 'nodejs';
+
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),

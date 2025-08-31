@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
@@ -38,7 +38,7 @@ function Tip({ text, children }: { text: string; children: ReactNode }) {
 const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
 const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-export default function Home() {
+function HomeInner() {
 // API key handling (shared across app)
   const { apiKey } = useApiKey();
 
@@ -1202,5 +1202,13 @@ export default function Home() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
   );
 }
