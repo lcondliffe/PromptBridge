@@ -308,7 +308,7 @@ function HomeInner() {
       }
       // Persist the user message for this turn
       await sdk.conversations.messages.create(convIdLocal!, { role: "user", content: finalPrompt });
-    } catch (_e) {
+    } catch {
       // Non-fatal; continue streaming UI regardless (e.g., API unavailable or unauthenticated)
       // Intentionally suppress console noise here to avoid alarming users during local/offline use.
     }

@@ -260,7 +260,6 @@ export function streamChatWithRetry(
   
   let currentAttempt = 0;
   let accumulatedContent = '';
-  let currentController: AbortController | null = null;
   const masterController = new AbortController();
   
   const attemptStream = async (): Promise<void> => {
@@ -321,7 +320,6 @@ export function streamChatWithRetry(
     };
     
     const { abortController, promise } = streamChat(retryParams, attemptCallbacks);
-    currentController = abortController;
     
     // If master controller is aborted, abort current attempt
     if (masterController.signal.aborted) {

@@ -6,7 +6,7 @@
  * This script diagnoses GPT-5 availability and streaming issues with OpenRouter
  */
 
-const https = require('https');
+import https from 'https';
 
 const API_KEY = process.env.OPENROUTER_API_KEY || 'your-api-key-here';
 const BASE_URL = 'openrouter.ai';
@@ -44,7 +44,7 @@ function checkAccount() {
             console.log(`   - Limit: $${info.data?.limit || 'N/A'}`);
             console.log(`   - Label: ${info.data?.label || 'N/A'}`);
             resolve(true);
-          } catch (e) {
+          } catch {
             console.log('⚠️  API Key valid but response parsing failed:', data);
             resolve(true);
           }
@@ -108,7 +108,7 @@ function checkModels() {
               openaiModels.forEach(m => console.log(`   - ${m.id}`));
               resolve([]);
             }
-          } catch (e) {
+          } catch {
             console.log('❌ Failed to parse models response:', data.slice(0, 200));
             resolve([]);
           }
@@ -182,7 +182,7 @@ function testNonStreaming(model) {
               console.log('   Full response:', JSON.stringify(response, null, 2));
               resolve(false);
             }
-          } catch (e) {
+          } catch {
             console.log('❌ Failed to parse non-streaming response:', data.slice(0, 300));
             resolve(false);
           }
@@ -289,7 +289,7 @@ function testStreaming(model) {
                 if (payload.error) {
                   console.log(`      ❌ Error in payload:`, payload.error);
                 }
-              } catch (e) {
+              } catch {
                 console.log(`      ⚠️  Unparseable data: ${dataStr.slice(0, 50)}`);
               }
             }

@@ -12,7 +12,7 @@
  * Or add your key directly in the script (not recommended for production).
  */
 
-const https = require('https');
+import https from 'https';
 
 const API_KEY = process.env.OPENROUTER_API_KEY || 'your-api-key-here';
 const BASE_URL = 'openrouter.ai';
@@ -148,9 +148,9 @@ function makeStreamingRequest(testNumber) {
               tokenCount++;
               fullResponse += content;
             }
-          } catch (parseError) {
-            console.log(`⚠️ Test ${testNumber}: Malformed SSE data:`, dataStr.slice(0, 100));
-          }
+            } catch {
+              console.log(`⚠️ Test ${testNumber}: Malformed SSE data:`, dataStr.slice(0, 100));
+            }
         }
       });
 
