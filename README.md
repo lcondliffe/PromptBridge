@@ -163,3 +163,4 @@ Open http://localhost:3000 and set your OpenRouter API key in the UI.
 ### Future improvement (TODO)
 Switch from `prisma db push` to Prisma Migrations (`prisma migrate deploy`) for production-grade, versioned schema management. The compose `migrate` service can be updated accordingly.
 # Test commit
+Test automatic versioning
