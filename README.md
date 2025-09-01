@@ -165,3 +165,4 @@ Switch from `prisma db push` to Prisma Migrations (`prisma migrate deploy`) for 
 # Test commit
 Test automatic versioning
 Another test commit
+Feature commit
