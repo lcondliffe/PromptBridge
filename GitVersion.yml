@@ -5,4 +5,4 @@ branches:
   main:
     regex: ^main$
     increment: Patch
-    tag: ''
+    label: ''
