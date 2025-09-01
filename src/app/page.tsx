@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, useCall
 import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
-import { fetchModels, streamChat } from "@/lib/openrouter";
+import { fetchModels, streamChatWithRetry } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
 
 import useLocalStorage from "@/lib/useLocalStorage";
@@ -140,7 +140,7 @@ function HomeInner() {
 
   const popularDefaults = useMemo(
     () => [
-      "openai/gpt-5",
+      "openai/gpt-5-chat",
       "anthropic/claude-sonnet-4",
       "google/gemini-2.5-flash",
     ],
@@ -308,7 +308,7 @@ function HomeInner() {
       }
       // Persist the user message for this turn
       await sdk.conversations.messages.create(convIdLocal!, { role: "user", content: finalPrompt });
-    } catch (_e) {
+    } catch {
       // Non-fatal; continue streaming UI regardless (e.g., API unavailable or unauthenticated)
       // Intentionally suppress console noise here to avoid alarming users during local/offline use.
     }
@@ -344,7 +344,7 @@ function HomeInner() {
 
     const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     for (const model of selectedModels) {
-      const handle = streamChat(
+      const handle = streamChatWithRetry(
         {
           apiKey,
           model,
@@ -391,6 +391,10 @@ function HomeInner() {
               ...p,
               [model]: { ...(p[model] || { draft: '' }), running: false, draft: '', error: err.message },
             })),
+          onRetry: (attempt, error) => {
+            console.log(`Retrying ${model} (attempt ${attempt}): ${error.message}`);
+            // Could update UI to show retry status if desired
+          }
         }
       );
       controllersRef.current[model] = handle.abortController;
@@ -601,7 +605,7 @@ function HomeInner() {
       }
     } catch {}
     const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-    const handle = streamChat(
+    const handle = streamChatWithRetry(
       {
         apiKey,
         model: id,

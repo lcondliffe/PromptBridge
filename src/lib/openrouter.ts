@@ -1,6 +1,16 @@
 import type { ChatParams, ModelInfo, StreamCallbacks, StreamHandle } from './types';
 import { log } from './logger';
 
+interface RetryableStreamCallbacks extends StreamCallbacks {
+  onRetry?: (attempt: number, error: Error) => void;
+}
+
+interface RetryConfig {
+  maxRetries?: number;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+}
+
 const BASE_URL = 'https://openrouter.ai/api/v1';
 
 function defaultHeaders(apiKey: string): HeadersInit {
@@ -63,6 +73,7 @@ export function streamChat(
     structured_outputs,
     debug,
     traceId,
+    streamTimeoutMs,
   }: ChatParams,
   { onToken, onDone, onError }: StreamCallbacks = {}
 ): StreamHandle {
@@ -132,50 +143,93 @@ export function streamChat(
       let full = '';
       const startedAt = Date.now();
       let firstTokenLogged = false;
+      let lastChunkTime = Date.now();
+      
+      // Default timeout: 15s for GPT-5, 30s for others
+      const timeoutMs = streamTimeoutMs ?? (model.includes('gpt-5') ? 15000 : 30000);
+      
+      // Set up stream timeout detection
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const resetTimeout = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          const stallDuration = Date.now() - lastChunkTime;
+          if (debug) {
+            log('warn','chat','stream_stall',{ traceId, stallDurationMs: stallDuration, timeoutMs, model });
+          }
+          abortController.abort(new Error(`Stream timeout after ${stallDuration}ms - no data received`));
+        }, timeoutMs);
+      };
+      
+      resetTimeout(); // Initial timeout
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          // Reset timeout on any chunk received
+          lastChunkTime = Date.now();
+          resetTimeout();
+          
+          buffer += decoder.decode(value, { stream: true });
 
-        // SSE messages are separated by double newlines; process line by line
-        const lines = buffer.split(/\r?\n/);
-        // Keep the last partial line in the buffer
-        buffer = lines.pop() || '';
+          // SSE messages are separated by double newlines; process line by line
+          const lines = buffer.split(/\r?\n/);
+          // Keep the last partial line in the buffer
+          buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          if (trimmed.startsWith('data:')) {
-            const dataStr = trimmed.slice('data:'.length).trim();
-            if (dataStr === '[DONE]') {
-              onDone?.(full);
-              return;
-            }
-            try {
-              const payload = JSON.parse(dataStr);
-              // Try OpenAI-style delta
-              const delta = payload?.choices?.[0]?.delta ?? payload?.choices?.[0]?.message ?? payload?.message ?? null;
-              const contentChunk = delta?.content ?? payload?.choices?.[0]?.text ?? '';
-              if (contentChunk) {
-                full += contentChunk;
-                onToken?.(contentChunk);
-                if (debug && !firstTokenLogged) {
-                  firstTokenLogged = true;
-                  log('info','chat','first_token',{ traceId, ms: Date.now()-startedAt });
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            if (trimmed.startsWith('data:')) {
+              const dataStr = trimmed.slice('data:'.length).trim();
+              if (dataStr === '[DONE]') {
+                if (timeoutId) clearTimeout(timeoutId);
+                if (debug) {
+                  log('info','chat','stream_completed',{ traceId, totalChars: full.length, durationMs: Date.now()-startedAt });
+                }
+                onDone?.(full);
+                return;
+              }
+              try {
+                const payload = JSON.parse(dataStr);
+                
+                // Check for OpenRouter error format
+                if (payload.error) {
+                  const errorMsg = payload.error.message || payload.error.code || 'Unknown API error';
+                  throw new Error(`OpenRouter API error: ${errorMsg}`);
+                }
+                
+                // Try OpenAI-style delta
+                const delta = payload?.choices?.[0]?.delta ?? payload?.choices?.[0]?.message ?? payload?.message ?? null;
+                const contentChunk = delta?.content ?? payload?.choices?.[0]?.text ?? '';
+                if (contentChunk) {
+                  full += contentChunk;
+                  onToken?.(contentChunk);
+                  if (debug && !firstTokenLogged) {
+                    firstTokenLogged = true;
+                    log('info','chat','first_token',{ traceId, ms: Date.now()-startedAt });
+                  }
+                }
+              } catch (parseError) {
+                // Log malformed SSE data for debugging
+                if (debug) {
+                  log('warn','chat','malformed_sse',{ traceId, dataStr: dataStr.slice(0, 200), parseError: String(parseError) });
                 }
               }
-            } catch {
-              // Ignore malformed lines
             }
           }
         }
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
-      // End of stream without [DONE]
-      onDone?.(full);
+      // End of stream without [DONE] - this is normal for some models like GPT-5
+      if (timeoutId) clearTimeout(timeoutId);
       if (debug) {
-        log('info','chat','done',{ traceId, durationMs: Date.now()-startedAt, chars: full.length });
+        log('info','chat','stream_ended_without_done',{ traceId, durationMs: Date.now()-startedAt, chars: full.length });
       }
+      onDone?.(full);
     } catch (err) {
       if (abortController.signal.aborted) {
         if (debug) log('warn','chat','aborted',{ traceId });
@@ -188,4 +242,108 @@ export function streamChat(
   })();
 
   return { abortController, promise };
+}
+
+// Wrapper function that adds retry logic to streamChat
+export function streamChatWithRetry(
+  params: ChatParams,
+  callbacks: RetryableStreamCallbacks = {},
+  retryConfig: RetryConfig = {}
+): StreamHandle {
+  const {
+    maxRetries = 3,
+    baseDelayMs = 1000,
+    maxDelayMs = 8000
+  } = retryConfig;
+  
+  const { onToken, onDone, onError, onRetry } = callbacks;
+  
+  let currentAttempt = 0;
+  let accumulatedContent = '';
+  const masterController = new AbortController();
+  
+  const attemptStream = async (): Promise<void> => {
+    currentAttempt++;
+    
+    const attemptCallbacks: StreamCallbacks = {
+      onToken: (chunk) => {
+        accumulatedContent += chunk;
+        onToken?.(chunk);
+      },
+      onDone: (full) => {
+        onDone?.(full || accumulatedContent);
+      },
+      onError: async (error) => {
+        // Check if this is a retryable error
+        const isRetryable = 
+          error.message.includes('Stream timeout') ||
+          error.message.includes('network') ||
+          error.message.includes('fetch') ||
+          error.message.includes('aborted') && !masterController.signal.aborted;
+        
+        if (isRetryable && currentAttempt < maxRetries) {
+          if (params.debug) {
+            log('info', 'chat', 'retry_attempt', { 
+              traceId: params.traceId, 
+              attempt: currentAttempt + 1, 
+              maxRetries, 
+              error: error.message,
+              accumulatedChars: accumulatedContent.length
+            });
+          }
+          
+          onRetry?.(currentAttempt + 1, error);
+          
+          // Exponential backoff with jitter
+          const delay = Math.min(
+            baseDelayMs * Math.pow(2, currentAttempt - 1) + Math.random() * 1000,
+            maxDelayMs
+          );
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          // If not aborted by user, retry
+          if (!masterController.signal.aborted) {
+            await attemptStream();
+          }
+        } else {
+          // Either non-retryable or max attempts reached
+          onError?.(error);
+        }
+      }
+    };
+    
+    // Add retry attempt header
+    const retryParams: ChatParams = {
+      ...params,
+      // Could add x-retry-attempt header here if needed by modifying headers in streamChat
+    };
+    
+    const { abortController, promise } = streamChat(retryParams, attemptCallbacks);
+    
+    // If master controller is aborted, abort current attempt
+    if (masterController.signal.aborted) {
+      abortController.abort();
+      return;
+    }
+    
+    // Listen for master abort
+    const onMasterAbort = () => {
+      abortController.abort();
+    };
+    masterController.signal.addEventListener('abort', onMasterAbort);
+    
+    try {
+      await promise;
+    } finally {
+      masterController.signal.removeEventListener('abort', onMasterAbort);
+    }
+  };
+  
+  const promise = attemptStream();
+  
+  return {
+    abortController: masterController,
+    promise
+  };
 }
