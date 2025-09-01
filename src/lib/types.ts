@@ -40,6 +40,8 @@ export interface ChatParams {
   // Debugging / logging
   debug?: boolean;
   traceId?: string;
+  // Stream reliability
+  streamTimeoutMs?: number;
 }
 
 export interface StreamHandle {
