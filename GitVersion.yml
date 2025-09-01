@@ -9,7 +9,3 @@ branches:
     increment: Patch
     label: ''
     is-main-branch: true
-    prevent-increment:
-      of-merged-branch: false
-      when-branch-merged: false
-    track-merge-target: false
