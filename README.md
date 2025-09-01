@@ -1,4 +1,9 @@
-# PromptBridge
+<table>
+  <tr>
+    <td><img src="public/logo.webp" alt="PromptBridge Logo" height="48" /></td>
+    <td><h1 style="margin:0;">PromptBridge</h1></td>
+  </tr>
+</table>
 
 A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and view each model’s response in its own pane, side-by-side.
 
@@ -9,6 +14,36 @@ A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and vie
 - Send a prompt once; responses stream into separate panes
 - Per-pane Stop/Copy and a global Stop all control
 - Light/dark-friendly Tailwind UI
+
+## Tech Stack
+
+### App / Framework
+
+<img src="https://cdn.simpleicons.org/nextdotjs/000000" alt="Next.js" height="34" />
+&nbsp;&nbsp;
+<img src="https://cdn.simpleicons.org/react/61DAFB" alt="React" height="34" />
+&nbsp;&nbsp;
+<img src="https://cdn.simpleicons.org/typescript/3178C6" alt="TypeScript" height="34" />
+&nbsp;&nbsp;
+<img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" alt="Tailwind CSS" height="34" />
+
+### Auth
+
+<img src="https://cdn.simpleicons.org/clerk/000000" alt="Clerk" height="34" />
+
+### DB / ORM
+
+<img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" height="34" />
+&nbsp;&nbsp;
+<img src="https://cdn.simpleicons.org/prisma/2D3748" alt="Prisma" height="34" />
+
+### Tooling
+
+<img src="https://cdn.simpleicons.org/pnpm/F69220" alt="pnpm" height="34" />
+&nbsp;&nbsp;
+<img src="https://cdn.simpleicons.org/eslint/4B32C3" alt="ESLint" height="34" />
+&nbsp;&nbsp;
+<img src="https://cdn.simpleicons.org/podman/892CA0" alt="Podman" height="34" />
 
 ## Security
 - Your API key is stored in your browser’s localStorage only; no backend is used.
@@ -81,6 +116,14 @@ podman compose down
 ```
 
 Notes:
+- Podman is the default tooling. If you prefer Docker, swap `podman` for `docker` in the commands above.
+- The image uses Node 20 (Debian bookworm-slim), runs as a non-root user, and leverages Next.js `output: 'standalone'` to keep the runtime small.
+- If you hit OOM during image build (exit code 137), increase Podman VM resources:
+  ```bash
+  podman machine stop
+  podman machine set --memory 6144 --cpus 3
+  podman machine start
+  ```
 - Podman is the default tooling. If you prefer Docker, swap `podman` for `docker` in the commands above.
 - The image uses Node 20 (Debian bookworm-slim), runs as a non-root user, and leverages Next.js `output: 'standalone'` to keep the runtime small.
 - If you hit OOM during image build (exit code 137), increase Podman VM resources:
