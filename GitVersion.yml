@@ -1,10 +1,8 @@
 mode: Mainline
 next-version: 0.0.1
 commit-message-incrementing: Enabled
-major-version-bump-message: '(?i)\+semver:\s?(breaking|major)'
-minor-version-bump-message: '(?i)\+semver:\s?(feature|minor)'
 branches:
   main:
     regex: ^main$
     increment: Patch
-    label: ''
+    tag: ''
