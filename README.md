@@ -1,9 +1,7 @@
-<table>
-  <tr>
-    <td><img src="public/logo.webp" alt="PromptBridge Logo" height="48" /></td>
-    <td><h1 style="margin:0;">PromptBridge</h1></td>
-  </tr>
-</table>
+<div align="left">
+  <img src="public/logo.webp" alt="PromptBridge Logo" height="48" style="vertical-align: middle; margin-right: 12px;" />
+  <span style="font-size: 2em; font-weight: bold; vertical-align: middle;">PromptBridge</span>
+</div>
 
 A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and view each model’s response in its own pane, side-by-side.
 
@@ -19,13 +17,7 @@ A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and vie
 
 ### App / Framework
 
-<img src="https://cdn.simpleicons.org/nextdotjs/000000" alt="Next.js" height="34" />
-&nbsp;&nbsp;
-<img src="https://cdn.simpleicons.org/react/61DAFB" alt="React" height="34" />
-&nbsp;&nbsp;
-<img src="https://cdn.simpleicons.org/typescript/3178C6" alt="TypeScript" height="34" />
-&nbsp;&nbsp;
-<img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" alt="Tailwind CSS" height="34" />
+<img src="https://cdn.simpleicons.org/nextdotjs/000000" alt="Next.js" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/react/61DAFB" alt="React" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/typescript/3178C6" alt="TypeScript" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" alt="Tailwind CSS" height="34" />
 
 ### Auth
 
@@ -33,17 +25,11 @@ A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and vie
 
 ### DB / ORM
 
-<img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" height="34" />
-&nbsp;&nbsp;
-<img src="https://cdn.simpleicons.org/prisma/2D3748" alt="Prisma" height="34" />
+<img src="https://cdn.simpleicons.org/postgresql/4169E1" alt="PostgreSQL" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/prisma/2D3748" alt="Prisma" height="34" />
 
 ### Tooling
 
-<img src="https://cdn.simpleicons.org/pnpm/F69220" alt="pnpm" height="34" />
-&nbsp;&nbsp;
-<img src="https://cdn.simpleicons.org/eslint/4B32C3" alt="ESLint" height="34" />
-&nbsp;&nbsp;
-<img src="https://cdn.simpleicons.org/podman/892CA0" alt="Podman" height="34" />
+<img src="https://cdn.simpleicons.org/pnpm/F69220" alt="pnpm" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/eslint/4B32C3" alt="ESLint" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/podman/892CA0" alt="Podman" height="34" />
 
 ## Security
 - Your API key is stored in your browser’s localStorage only; no backend is used.
