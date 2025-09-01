@@ -1,7 +1,4 @@
-<div align="left">
-  <img src="public/logo.webp" alt="PromptBridge Logo" height="48" style="vertical-align: middle; margin-right: 12px;" />
-  <span style="font-size: 2em; font-weight: bold; vertical-align: middle;">PromptBridge</span>
-</div>
+# PromptBridge
 
 A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and view each model’s response in its own pane, side-by-side.
 
