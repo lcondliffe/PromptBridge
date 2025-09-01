@@ -5,4 +5,4 @@ branches:
     regex: ^main$
     increment: Patch
     label: ''
-    is-mainline: true
+    is-main-branch: true
