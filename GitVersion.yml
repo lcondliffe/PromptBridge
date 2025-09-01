@@ -1,4 +1,3 @@
-next-version: 0.1.0
 commit-message-incrementing: Enabled
 major-version-bump-message: '(?i)\+semver:\s?(breaking|major)'
 minor-version-bump-message: '(?i)\+semver:\s?(feature|minor)'
