@@ -37,7 +37,6 @@ export default function VendorLogo({
       anthropic: { ...siAnthropic, hex: "D4820C" }, // Anthropic orange instead of black
       "meta-llama": siMeta,
       meta: siMeta,
-      mistralai: siGoogle, // Using Google as fallback for Mistral
       qwen: siAlibabacloud, // Qwen is by Alibaba Cloud
       google: siGoogle,
       nvidia: siNvidia,
@@ -45,12 +44,8 @@ export default function VendorLogo({
       xai: { ...siX, hex: "E5E7EB" },
       x: { ...siX, hex: "E5E7EB" },
       "x-ai": { ...siX, hex: "E5E7EB" },
-      // Microsoft variants will fall back to generic icon
-      deepseek: siGoogle, // Using Google as fallback
-      cohere: siGoogle, // Using Google as fallback
-      perplexity: siGoogle, // Using Google as fallback
-      fireworks: siGoogle, // Using Google as fallback
-      groq: siNvidia, // Using NVIDIA as fallback for Groq
+      // TODO: Add official Simple Icons mappings when available for:
+      // mistralai, deepseek, cohere, perplexity, fireworks, groq
     };
     return iconMap[vendor];
   }, [vendor]);
