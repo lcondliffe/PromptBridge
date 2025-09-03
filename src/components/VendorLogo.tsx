@@ -1,15 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Image from "next/image";
+import { useMemo } from "react";
+import {
+  siOpenai,
+  siMeta,
+  siGoogle,
+  siNvidia,
+  siX,
+  siAnthropic,
+  siAlibabacloud,
+} from "simple-icons";
 
 /**
  * VendorLogo renders a small vendor logo for a given model id (e.g. "openai/gpt-4o-mini").
- * It derives the vendor from the id's prefix before '/'.
- * Resolution order for the logo source:
- *   1) Local curated SVG at /vendors/{vendor}.svg (if you add one)
- *   2) Clearbit logo for one of the known domains (tries multiple per vendor)
- *   3) Fallback to /globe.svg
+ * It derives the vendor from the id's prefix before '/' and uses Simple Icons for representation.
  */
 export default function VendorLogo({
   modelId,
@@ -26,61 +30,69 @@ export default function VendorLogo({
 }) {
   const vendor = useMemo(() => ((modelId || "").split("/", 1)[0] || "").toLowerCase(), [modelId]);
 
-  // Known vendor (First item has highest priority)
-  const domains = useMemo(() => {
-    const map: Record<string, string[]> = {
-      openai: ["openai.com"],
-      anthropic: ["anthropic.com"],
-      "meta-llama": ["meta.com"],
-      mistralai: ["mistral.ai"],
-      // Qwen is by Alibaba Cloud; try qwenlm and Alibaba Cloud domains
-      qwen: ["qwenlm.ai", "alibabacloud.com", "aliyun.com"],
-      deepseek: ["deepseek.com"],
-      google: ["google.com"],
-      cohere: ["cohere.com"],
-      nvidia: ["nvidia.com"],
-      perplexity: ["perplexity.ai"],
-      fireworks: ["fireworks.ai"],
-      groq: ["groq.com"],
-      // xAI sometimes appears as x-ai
-      xai: ["x.ai"],
-      x: ["x.ai"],
-      "x-ai": ["x.ai"],
-      microsoft: ["microsoft.com", "azure.microsoft.com"],
+  // Map vendors to Simple Icons with custom colors for better dark mode visibility
+  const iconData = useMemo(() => {
+    const iconMap: Record<string, { path: string; hex: string; title: string }> = {
+      openai: { ...siOpenai, hex: "10A37F" }, // OpenAI green instead of purple
+      anthropic: { ...siAnthropic, hex: "D4820C" }, // Anthropic orange instead of black
+      "meta-llama": siMeta,
+      meta: siMeta,
+      mistralai: siGoogle, // Using Google as fallback for Mistral
+      qwen: siAlibabacloud, // Qwen is by Alibaba Cloud
+      google: siGoogle,
+      nvidia: siNvidia,
+      // xAI variants - using a light gray instead of black for visibility
+      xai: { ...siX, hex: "E5E7EB" },
+      x: { ...siX, hex: "E5E7EB" },
+      "x-ai": { ...siX, hex: "E5E7EB" },
+      // Microsoft variants will fall back to generic icon
+      deepseek: siGoogle, // Using Google as fallback
+      cohere: siGoogle, // Using Google as fallback
+      perplexity: siGoogle, // Using Google as fallback
+      fireworks: siGoogle, // Using Google as fallback
+      groq: siNvidia, // Using NVIDIA as fallback for Groq
     };
-    return map[vendor] || [];
+    return iconMap[vendor];
   }, [vendor]);
-
-  // Build candidate sources in priority order
-  const sources = useMemo(() => {
-    const list: string[] = [];
-    // 1) Local curated SVG (add a file at public/vendors/{vendor}.svg to override)
-    if (vendor) list.push(`/vendors/${vendor}.svg`);
-    // 2) Clearbit candidates
-    for (const d of domains) list.push(`https://logo.clearbit.com/${d}`);
-    // 3) Final fallback
-    list.push("/globe.svg");
-    return list;
-  }, [vendor, domains]);
-
-  const [idx, setIdx] = useState(0);
-  const src = sources[Math.min(idx, sources.length - 1)] || "/globe.svg";
 
   const radius = rounded ? "rounded-sm" : "";
   const alt = `${vendor || "vendor"} logo`;
   const t = title || vendor || "Vendor";
 
+  // If we have a Simple Icon, render it as SVG
+  if (iconData) {
+    return (
+      <div
+        className={`inline-flex items-center justify-center ${radius} ${className}`.trim()}
+        style={{ width: size, height: size }}
+        title={t}
+      >
+        <svg
+          role="img"
+          viewBox="0 0 24 24"
+          className="w-full h-full"
+          style={{ fill: `#${iconData.hex}` }}
+        >
+          <path d={iconData.path} />
+        </svg>
+      </div>
+    );
+  }
+
+  // Fallback to a generic icon for unknown vendors
   return (
-    <Image
-      src={src}
-      width={size}
-      height={size}
-      alt={alt}
-      title={t}
-      onError={() => setIdx((i) => Math.min(i + 1, sources.length - 1))}
-      className={`inline-block object-contain bg-white/5 ${radius} ${className}`.trim()}
+    <div
+      className={`inline-flex items-center justify-center bg-gray-100 ${radius} ${className}`.trim()}
       style={{ width: size, height: size }}
-      unoptimized
-    />
+      title={t}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="w-3/4 h-3/4 text-gray-400"
+        fill="currentColor"
+      >
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+      </svg>
+    </div>
   );
 }
