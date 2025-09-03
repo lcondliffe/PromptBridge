@@ -26,10 +26,6 @@ RUN corepack enable \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Accept build arguments for Clerk configuration
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-ARG CLERK_SECRET_KEY
-
 # Reuse previously installed node_modules
 COPY --from=deps /app/node_modules ./node_modules
 # Copy the full workspace
@@ -37,9 +33,6 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Set Clerk environment variables for the build
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-ENV CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
 
 # Generate Prisma client before building
 RUN pnpm prisma:generate

@@ -78,13 +78,9 @@ Use Podman Compose to run the full stack locally (database + app). The compose f
 # 1) Start the Podman VM (macOS)
 podman machine start
 
-# 2) Build the app image with Clerk environment variables (first time or after changes)
-# This loads variables from .env and passes them as build args
-export $(grep -v '^#' .env | xargs)
-podman build \
-  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
-  --build-arg CLERK_SECRET_KEY="$CLERK_SECRET_KEY" \
-  -t promptbridge-app .
+# 2) Build the app image (first time or after changes)
+# No secrets needed - all Clerk keys provided at runtime only
+podman build -t promptbridge-app .
 podman tag promptbridge-app localhost/promptbridge-app:latest
 
 # 3) Build the migrate service
@@ -96,7 +92,7 @@ podman compose up -d db
 # 5) Apply the Prisma schema once (idempotent)
 podman compose run --rm migrate
 
-# 6) Start the app
+# 6) Start the app (Clerk keys loaded from .env at runtime)
 podman compose up -d app
 
 # View logs / status
@@ -108,9 +104,10 @@ podman compose down
 ```
 
 Notes:
-- **Environment Variables**: The build process requires Clerk keys from your `.env` file. Ensure you have:
+- **Environment Variables**: All Clerk keys are provided at runtime via your `.env` file. No keys needed during build. Ensure you have:
   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key`
   - `CLERK_SECRET_KEY=your_secret_key`
+- **Security**: The container image contains no authentication keys, making it safe for public distribution and multi-environment use.
 - Podman is the default tooling. If you prefer Docker, swap `podman` for `docker` in the commands above.
 - The image uses Node 20 (Debian bookworm-slim), runs as a non-root user, and leverages Next.js `output: 'standalone'` to keep the runtime small.
 - If you hit OOM during image build (exit code 137), increase Podman VM resources:

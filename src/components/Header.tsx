@@ -4,7 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useApiKey } from "@/lib/apiKey";
-import { UserButton } from "@clerk/nextjs";
+import dynamic from "next/dynamic";
+
+const UserButton = dynamic(() => import("@clerk/nextjs").then(mod => ({ default: mod.UserButton })), {
+  ssr: false
+});
 
 export default function Header({
   onBurger,
