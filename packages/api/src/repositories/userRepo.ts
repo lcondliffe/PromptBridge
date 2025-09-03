@@ -39,8 +39,4 @@ export async function countUsers() {
   return prisma.user.count();
 }
 
-// Legacy functions - deprecated with Clerk
-export async function getUserByEmail(email: string) {
-  return prisma.user.findUnique({ where: { email } });
-}
 
