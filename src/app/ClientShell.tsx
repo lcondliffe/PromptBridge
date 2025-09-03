@@ -53,11 +53,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     );
   }
 
-  // Redirect to login if not signed in
-  if (!isSignedIn) {
-    window.location.href = "/login";
-    return null;
-  }
+  // Let Clerk middleware handle redirects for unauthenticated users
+  // This component will only render for authenticated users on protected routes
 
   return (
     <SidebarCtx.Provider value={{ open, setOpen, desktopCollapsed, setDesktopCollapsed }}>

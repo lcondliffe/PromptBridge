@@ -15,7 +15,9 @@ This document outlines the completed migration from NextAuth.js to Clerk for Pro
 
 ### 3. Middleware Configuration
 - ✅ Replaced custom NextAuth middleware with `clerkMiddleware()`
+- ✅ Added route protection using `createRouteMatcher()`
 - ✅ Updated middleware matcher configuration for optimal performance
+- ✅ Ensured auth routes (`/login/*`, `/register/*`) are not protected
 
 ### 4. App Layout
 - ✅ Wrapped application with `<ClerkProvider>` in `app/layout.tsx`
@@ -24,6 +26,8 @@ This document outlines the completed migration from NextAuth.js to Clerk for Pro
 ### 5. Authentication Pages
 - ✅ Replaced custom login page with Clerk's `<SignIn>` component
 - ✅ Replaced custom register page with Clerk's `<SignUp>` component
+- ✅ Converted auth routes to catch-all routes (`[[...rest]]`)
+- ✅ Updated middleware to properly handle auth routes
 - ✅ Removed custom registration API endpoint
 
 ### 6. Client Components
