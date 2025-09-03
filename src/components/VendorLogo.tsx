@@ -30,7 +30,7 @@ export default function VendorLogo({
 }) {
   const vendor = useMemo(() => ((modelId || "").split("/", 1)[0] || "").toLowerCase(), [modelId]);
 
-  // Map vendors to Simple Icons with custom colors for better dark mode visibility
+  // Map vendors to Simple Icons with custom colours for better dark mode visibility
   const iconData = useMemo(() => {
     const iconMap: Record<string, { path: string; hex: string; title: string }> = {
       openai: { ...siOpenai, hex: "10A37F" }, // OpenAI green instead of purple
