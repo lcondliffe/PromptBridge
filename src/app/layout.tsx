@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "prismjs/themes/prism-tomorrow.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import ClientShell from "./ClientShell";
 
 const geistSans = Geist({
@@ -30,13 +31,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {/* Client shell wraps header, sidebar and main */}
-        <ClientShell>{children}</ClientShell>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          {/* Client shell wraps header, sidebar and main */}
+          <ClientShell>{children}</ClientShell>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

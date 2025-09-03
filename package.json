@@ -19,13 +19,13 @@
     "test:e2e:ci": "playwright test --reporter=github"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.31.8",
     "@prisma/client": "^5.22.0",
     "@promptbridge/api": "workspace:*",
     "@promptbridge/sdk": "workspace:*",
     "bcryptjs": "^2.4.3",
     "lucide-react": "^0.541.0",
     "next": "15.5.0",
-    "next-auth": "^5.0.0-beta.29",
     "prismjs": "^1.30.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

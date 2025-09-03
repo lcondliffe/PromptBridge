@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useApiKey } from "@/lib/apiKey";
+import { UserButton } from "@clerk/nextjs";
 
 export default function Header({
   onBurger,
@@ -41,7 +42,7 @@ export default function Header({
           </Link>
         </div>
         {/* Right: actions */}
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-3">
           {!apiKey && (
             <Link
               href="/settings"
@@ -50,6 +51,15 @@ export default function Header({
               Set API Key
             </Link>
           )}
+          <UserButton 
+            afterSignOutUrl="/login"
+            appearance={{
+              elements: {
+                avatarBox: "w-8 h-8",
+                userButtonTrigger: "focus:shadow-none"
+              }
+            }}
+          />
         </div>
       </div>
     </header>
