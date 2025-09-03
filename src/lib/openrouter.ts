@@ -236,7 +236,14 @@ export function streamChat(
         return;
       }
       const error = err instanceof Error ? err : new Error(String(err));
-      if (debug) log('error','chat','error',{ traceId, message: error.message });
+      if (debug) {
+        log('error','chat','error',{ 
+          traceId: traceId || 'unknown', 
+          message: error.message || 'Unknown error',
+          name: error.name || 'Error',
+          stack: error.stack?.slice(0, 500) || 'No stack trace'
+        });
+      }
       onError?.(error);
     }
   })();

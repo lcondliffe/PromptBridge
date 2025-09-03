@@ -19,35 +19,36 @@
     "test:e2e:ci": "playwright test --reporter=github"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@promptbridge/api": "workspace:*",
+    "@promptbridge/sdk": "workspace:*",
+    "bcryptjs": "^2.4.3",
     "lucide-react": "^0.541.0",
     "next": "15.5.0",
     "next-auth": "^5.0.0-beta.29",
-    "@prisma/client": "^5.22.0",
-    "bcryptjs": "^2.4.3",
-    "zod": "^3.23.8",
+    "prismjs": "^1.30.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "@promptbridge/api": "workspace:*",
-    "@promptbridge/sdk": "workspace:*",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
+    "refractor": "^4.8.1",
     "rehype-prism-plus": "^2.0.1",
-    "prismjs": "^1.30.0",
-    "refractor": "^4.8.1"
+    "remark-gfm": "^4.0.1",
+    "simple-icons": "^15.13.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.48.2",
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
-    "tailwindcss": "^4",
-    "typescript": "^5",
     "prisma": "^5.22.0",
-    "@types/bcryptjs": "^2.4.6",
-    "@playwright/test": "^1.48.2"
+    "tailwindcss": "^4",
+    "typescript": "^5"
   },
   "pnpm": {
     "overrides": {
