@@ -44,15 +44,3 @@ export async function getUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }
 
-export async function createUser(
-  email: string,
-  password: string,
-  opts?: { role?: "ADMIN" | "USER" }
-) {
-  throw new Error("createUser is deprecated - use Clerk for user creation");
-}
-
-export async function verifyPassword(password: string, passwordHash: string) {
-  throw new Error("verifyPassword is deprecated - Clerk handles authentication");
-}
-

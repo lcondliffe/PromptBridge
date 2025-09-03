@@ -22,7 +22,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const [open, setOpen] = useLocalStorage<boolean>("sidebar_open", false);
   const [desktopCollapsed, setDesktopCollapsed] = useLocalStorage<boolean>("sidebar_collapsed", false);
   const pathname = usePathname();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded } = useUser();
 
   // Minimal chrome for auth pages (/login, /register)
   if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
