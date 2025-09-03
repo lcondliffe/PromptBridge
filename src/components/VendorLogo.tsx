@@ -56,7 +56,6 @@ export default function VendorLogo({
   }, [vendor]);
 
   const radius = rounded ? "rounded-sm" : "";
-  const alt = `${vendor || "vendor"} logo`;
   const t = title || vendor || "Vendor";
 
   // If we have a Simple Icon, render it as SVG
