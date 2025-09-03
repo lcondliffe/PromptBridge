@@ -38,7 +38,7 @@ A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and vie
 
 - API is implemented via Next.js Route Handlers at `src/app/api/*` and all DB access is isolated in `packages/api` (repository/service layer with Prisma). Chat history is available at `/history` with detail view at `/history/[id]`.
 - A first-party internal SDK lives at `packages/sdk` and is used by the frontend; it speaks to `/api` in dev and can be pointed to a split base via `NEXT_PUBLIC_API_BASE_URL`.
-- Authentication uses NextAuth (Credentials provider) with a simple email/password flow. The app is gated by middleware; public routes: `/login`, `/api/auth/*`, `/api/health`, `/api/status`, and `/api/register` (only to allow first-run admin creation).
+- Authentication uses Clerk with professional sign-in/sign-up UI. The app is gated by middleware; protected routes require authentication, while auth routes (`/login/*`, `/register/*`) and public APIs (`/api/health`, `/api/status`) are accessible without authentication.
 - Persistence is Postgres via Prisma with the following models: `User`, `Conversation`, `Message`.
 
 
@@ -78,16 +78,25 @@ Use Podman Compose to run the full stack locally (database + app). The compose f
 # 1) Start the Podman VM (macOS)
 podman machine start
 
-# 2) Build images (first time or after changes)
-podman compose build app migrate
+# 2) Build the app image with Clerk environment variables (first time or after changes)
+# This loads variables from .env and passes them as build args
+export $(grep -v '^#' .env | xargs)
+podman build \
+  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+  --build-arg CLERK_SECRET_KEY="$CLERK_SECRET_KEY" \
+  -t promptbridge-app .
+podman tag promptbridge-app localhost/promptbridge-app:latest
 
-# 3) Start the database and wait until healthy
+# 3) Build the migrate service
+podman compose build migrate
+
+# 4) Start the database and wait until healthy
 podman compose up -d db
 
-# 4) Apply the Prisma schema once (idempotent)
+# 5) Apply the Prisma schema once (idempotent)
 podman compose run --rm migrate
 
-# 5) Start the app
+# 6) Start the app
 podman compose up -d app
 
 # View logs / status
@@ -99,14 +108,9 @@ podman compose down
 ```
 
 Notes:
-- Podman is the default tooling. If you prefer Docker, swap `podman` for `docker` in the commands above.
-- The image uses Node 20 (Debian bookworm-slim), runs as a non-root user, and leverages Next.js `output: 'standalone'` to keep the runtime small.
-- If you hit OOM during image build (exit code 137), increase Podman VM resources:
-  ```bash
-  podman machine stop
-  podman machine set --memory 6144 --cpus 3
-  podman machine start
-  ```
+- **Environment Variables**: The build process requires Clerk keys from your `.env` file. Ensure you have:
+  - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key`
+  - `CLERK_SECRET_KEY=your_secret_key`
 - Podman is the default tooling. If you prefer Docker, swap `podman` for `docker` in the commands above.
 - The image uses Node 20 (Debian bookworm-slim), runs as a non-root user, and leverages Next.js `output: 'standalone'` to keep the runtime small.
 - If you hit OOM during image build (exit code 137), increase Podman VM resources:
