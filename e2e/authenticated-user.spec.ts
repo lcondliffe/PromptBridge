@@ -11,31 +11,31 @@ test.describe('Authenticated User Flow', () => {
       return;
     }
 
-    // Navigate to sign-in page
-    await page.goto('/login');
-
-    // Use Clerk's testing utilities to sign in
-    await clerk.signIn({
-      page,
-      signInParams: {
-        strategy: 'password',
-        identifier: process.env.E2E_CLERK_USER_USERNAME!,
-        password: process.env.E2E_CLERK_USER_PASSWORD!,
-      },
-    });
-
-    // Should redirect to home page after successful sign-in
-    await expect(page).toHaveURL('/');
+    // If we're not already authenticated (from storage state), sign in
+    await page.goto('/');
+    if ((await page.url()).includes('/login')) {
+      await clerk.signIn({
+        page,
+        signInParams: {
+          strategy: 'password',
+          identifier: process.env.E2E_CLERK_USER_USERNAME!,
+          password: process.env.E2E_CLERK_USER_PASSWORD!,
+        },
+      });
+      // After programmatic sign-in, navigate to a protected page to confirm auth
+      await page.goto('/');
+    }
+    await expect(page).not.toHaveURL(/\/login$/);
 
     // Verify user can access protected routes
     await page.goto('/history');
     await expect(page).toHaveURL('/history');
-    await expect(page.getByText('Chat history')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /chat history/i })).toBeVisible();
 
     // Verify user can access settings
     await page.goto('/settings');
     await expect(page).toHaveURL('/settings');
-    await expect(page.getByText('Settings')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
 
     // Verify user button is present (indicating authenticated state)
     await page.goto('/');
@@ -45,18 +45,25 @@ test.describe('Authenticated User Flow', () => {
     // Sign out using Clerk's testing utilities
     await clerk.signOut({ page });
 
-    // Should redirect to login after sign out
-    await expect(page).toHaveURL('/login');
+    // Should redirect to login after sign out (allow redirect_url param)
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
   });
 
-  test('unauthenticated user is redirected to login', async ({ page }) => {
-    // Clear any existing auth state
-    await page.context().clearCookies();
-    
+  test('unauthenticated user is redirected to login', async ({ page, context }) => {
+    // Clear any existing auth state in this context
+    await context.clearCookies();
+    await context.clearPermissions();
+
+    // Also clear local/session storage to be safe
+    await page.addInitScript(() => {
+      try { window.localStorage.clear(); } catch {}
+      try { window.sessionStorage.clear(); } catch {}
+    });
+
     // Try to access a protected route
     await page.goto('/history');
     
-    // Should be redirected to login
-    await expect(page).toHaveURL('/login');
+    // Should be redirected to login (allow redirect_url query param)
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
   });
 });

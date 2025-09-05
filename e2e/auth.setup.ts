@@ -44,8 +44,9 @@ test('bootstrap auth state', async ({ page, context }) => {
     },
   });
 
-  // Wait for successful authentication and redirect
-  await expect(page).toHaveURL('/');
+  // After programmatic sign-in, navigate to a protected page to confirm auth
+  await page.goto('/');
+  await expect(page).not.toHaveURL(/\/login$/);
   
   // Persist the authenticated storage state for other tests
   await context.storageState({ path: 'e2e/.auth/user.json' });

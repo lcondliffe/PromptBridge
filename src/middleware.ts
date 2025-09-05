@@ -1,17 +1,21 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
+// Protected routes. Keep public endpoints (like /api/health, /api/status) out of this list.
 const isProtectedRoute = createRouteMatcher([
   '/',
   '/settings',
-  '/api/conversations(.*)',
-  '/api/health',
-  '/api/status'
+  '/history(.*)',
+  '/api/conversations(.*)'
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
+}, {
+  // Ensure Clerk consistently uses our custom auth routes
+  signInUrl: '/login',
+  signUpUrl: '/register',
 });
 
 export const config = {

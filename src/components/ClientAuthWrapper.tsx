@@ -13,7 +13,10 @@ interface ClientAuthWrapperProps {
 
 export default function ClientAuthWrapper({ children }: ClientAuthWrapperProps) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInUrl="/login"
+      signUpUrl="/register"
+    >
       {children}
     </ClerkProvider>
   );
