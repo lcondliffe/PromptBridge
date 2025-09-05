@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "prismjs/themes/prism-tomorrow.css";
 import ClientShell from "./ClientShell";
+import ClientAuthWrapper from "@/components/ClientAuthWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,8 +35,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Client shell wraps header, sidebar and main */}
-        <ClientShell>{children}</ClientShell>
+        <ClientAuthWrapper>
+          {/* Client shell wraps header, sidebar and main */}
+          <ClientShell>{children}</ClientShell>
+        </ClientAuthWrapper>
       </body>
     </html>
   );

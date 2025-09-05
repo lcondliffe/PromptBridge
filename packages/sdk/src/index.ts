@@ -59,11 +59,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const sdk = {
   health: () => api<{ ok: true; now: string }>("/health"),
-  register: (email: string, password: string) =>
-    api<{ ok: true }>("/register", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
   conversations: {
     list: () => api<Conversation[]>("/conversations"),
     create: (title: string) =>

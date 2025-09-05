@@ -7,8 +7,8 @@ test('home page loads and is accessible', async ({ page }) => {
   const resp = await page.goto('/');
   expect(resp?.ok()).toBeTruthy();
   await expect(page).not.toHaveURL(/\/login$/);
-  await expect(page).toHaveURL('http://localhost:3000/');
+  // Avoid asserting an absolute host; just ensure we are at the home path
+  await expect(page).toHaveURL(/\/$/);
   // Basic DOM presence to ensure client renders
   await expect(page.locator('body')).toBeVisible();
 });
-

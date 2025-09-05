@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useApiKey } from "@/lib/apiKey";
-import { signOut, useSession } from "next-auth/react";
+import { useUser, useClerk } from "@clerk/nextjs";
 
 export default function SettingsPage() {
   const { apiKey, setApiKey } = useApiKey();
   const [show, setShow] = useState(false);
-  const { data: session } = useSession();
+  const { user } = useUser();
+  const { signOut } = useClerk();
 
   return (
     <div className="max-w-xl">
@@ -48,12 +49,12 @@ export default function SettingsPage() {
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
         <h3 className="font-medium mb-2">Account</h3>
         <p className="text-sm opacity-80 mb-3">
-          {session?.user?.email ? `Signed in as ${session.user.email}` : "Signed in"}
+          {user?.emailAddresses[0]?.emailAddress ? `Signed in as ${user.emailAddresses[0].emailAddress}` : "Signed in"}
         </p>
         <button
           type="button"
           className="rounded-md px-3 py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOut({ redirectUrl: "/login" })}
         >
           Sign out
         </button>
