@@ -12,9 +12,7 @@ test('health endpoint responds with ok: true', async ({ page }) => {
 test('history page loads for authenticated user', async ({ page }) => {
   // Skip this test when Clerk E2E credentials are not provided (e.g., local or CI without secrets)
   const hasCredentials = !!(process.env.E2E_CLERK_USER_USERNAME && process.env.E2E_CLERK_USER_PASSWORD);
-  if (!hasCredentials) {
-    test.skip('Skipping: E2E Clerk credentials not set');
-  }
+  test.skip(!hasCredentials, 'Skipping: E2E Clerk credentials not set');
 
   const resp = await page.goto('/history');
   expect(resp?.ok()).toBeTruthy();
