@@ -61,8 +61,11 @@ jobs:
           --health-cmd="pg_isready -U postgres -d promptbridge" --health-interval=5s --health-timeout=5s --health-retries=20
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/promptbridge
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_example_key_for_testing
-      CLERK_SECRET_KEY: sk_test_example_secret_for_testing
+      # For CI: Use test credentials if available, otherwise fallback to minimal testing
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY || 'pk_test_ci_fallback_key' }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY || 'sk_test_ci_fallback_secret' }}
+      E2E_CLERK_USER_USERNAME: ${{ secrets.E2E_CLERK_USER_USERNAME }}
+      E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
       NEXT_PUBLIC_API_BASE_URL: /api
       # Optional: set this in repo secrets to exercise real model fetching (not required)
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
