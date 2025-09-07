@@ -2,10 +2,11 @@ mode: ContinuousDeployment
 commit-message-incrementing: Enabled
 major-version-bump-message: '(?i)\+semver:\s?(breaking|major)'
 minor-version-bump-message: '(?i)\+semver:\s?(feature|minor)'
+no-bump-message: '(?i)\+semver:\s?none'
 increment: Patch
 branches:
   main:
-    regex: ^main$
     increment: Patch
+    regex: ^main$
     label: ''
     is-main-branch: true
