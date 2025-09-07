@@ -20,16 +20,43 @@ export default function ClientAuthWrapper({ children }: ClientAuthWrapperProps) 
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/config')
-      .then(res => res.json())
-      .then((config: ConfigResponse) => {
-        setPublishableKey(config.clerkPublishableKey);
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error('Failed to load configuration:', error);
-        setIsLoading(false);
-      });
+    const controller = new AbortController();
+
+    const loadConfig = async () => {
+      try {
+        const res = await fetch('/api/config', {
+          signal: controller.signal
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}, text: ${res.statusText}`);
+        }
+
+        const config: ConfigResponse = await res.json();
+        
+        // Check if component is still mounted before updating state
+        if (!controller.signal.aborted) {
+          setPublishableKey(config.clerkPublishableKey);
+        }
+      } catch (error) {
+        // Only log/handle error if request wasn't aborted (component unmounted)
+        if (!controller.signal.aborted) {
+          console.error('Failed to load configuration:', error);
+        }
+      } finally {
+        // Only update loading state if component is still mounted
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadConfig();
+
+    // Cleanup: abort the request if component unmounts
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   if (isLoading) {
