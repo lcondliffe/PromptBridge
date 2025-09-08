@@ -200,9 +200,10 @@ function HomeInner() {
         } catch {}
         maybeInitSelections(list);
         lastModelsApiKeyRef.current = apiKey;
-      } catch (err: any) {
+      } catch (err: unknown) {
         const msg = 'Failed to load models. Please try again.';
-        setUiError(err?.message ? `${msg} (${String(err.message).slice(0, 120)})` : msg);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setUiError(errorMessage ? `${msg} (${errorMessage.slice(0, 120)})` : msg);
         console.debug('fetchModels error', err);
       }
     })();
@@ -254,7 +255,7 @@ function HomeInner() {
           setSessionConvId(conv);
           setActiveConversationId(conv);
           setShowResults(true);
-        } catch (e: any) {
+        } catch (e: unknown) {
           setUiError('Failed to load conversation. Please refresh or try again later.');
           console.debug('resume-conversation error', e);
         }
