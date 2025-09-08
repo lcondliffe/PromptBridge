@@ -25,7 +25,7 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'pnpm dev:e2e',
+    command: 'pnpm dev',
     port: 3000,
     reuseExistingServer: !isCI,
     timeout: 180_000,

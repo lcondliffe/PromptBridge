@@ -4,50 +4,35 @@ This document outlines PromptBridge's E2E testing strategy and implementation de
 
 ## Overview
 
-PromptBridge uses Playwright for end-to-end testing with a mock OpenRouter API to ensure deterministic, reliable tests without requiring real API keys or network calls.
+PromptBridge uses Playwright for end-to-end testing with optional real OpenRouter API integration for comprehensive testing of the streaming functionality.
 
-## Mock Setup
+## API Key Setup
 
-### Enabling Mocks
+### Environment Variables
 
-Mocks are controlled by the `NEXT_PUBLIC_E2E_MOCK_OPENROUTER` environment variable:
+Real API integration is controlled by the `E2E_OPENROUTER_API_KEY` environment variable:
 
 ```bash
-# Enable mock (for E2E tests)
-export NEXT_PUBLIC_E2E_MOCK_OPENROUTER=1
+# Enable real API testing
+export E2E_OPENROUTER_API_KEY=sk-or-v1-your-actual-api-key
 
-# Disable mock (normal operation)
-unset NEXT_PUBLIC_E2E_MOCK_OPENROUTER
+# Skip API tests (recommended for CI without secrets)
+unset E2E_OPENROUTER_API_KEY
 ```
 
-### Mock Implementation
+### Test Configuration
 
-Located in `src/lib/openrouter.ts`:
+**Model Selection**: Tests use cost-effective models:
+- `openai/gpt-3.5-turbo` - Fast, inexpensive, reliable for testing
 
+**Graceful Skipping**: Tests automatically skip when no API key is provided:
 ```typescript
-export const isMockOpenRouter = () => process.env.NEXT_PUBLIC_E2E_MOCK_OPENROUTER === '1';
+test('can send a prompt and receive a streaming result', async ({ page }) => {
+  const apiKey = process.env.E2E_OPENROUTER_API_KEY;
+  test.skip(!apiKey, 'Skipping: E2E_OPENROUTER_API_KEY not set');
+  // ... test implementation
+});
 ```
-
-**Mock Models**: Returns three predefined models:
-- `openai/gpt-5-chat` - "OpenAI: GPT-5 Chat"
-- `anthropic/claude-sonnet-4` - "Anthropic: Claude Sonnet 4"  
-- `google/gemini-2.5-flash` - "Google: Gemini 2.5 Flash"
-
-**Mock Streaming**: Simulates token-by-token streaming with deterministic content:
-- Message: "Mock reply: Hello from {model}."
-- Chunks: ["Mock reply: ", "Hello ", "from ", "{model}", "."]
-- Interval: 60ms between chunks
-- Proper abort controller support
-
-## Package.json Scripts
-
-```json
-{
-  "dev:e2e": "NEXT_PUBLIC_E2E_MOCK_OPENROUTER=1 next dev"
-}
-```
-
-This script starts the Next.js development server with mocks enabled.
 
 ## Playwright Configuration
 
@@ -55,14 +40,14 @@ This script starts the Next.js development server with mocks enabled.
 
 ```typescript
 webServer: {
-  command: 'pnpm dev:e2e',
+  command: 'pnpm dev',
   port: 3000,
   reuseExistingServer: !process.env.CI,
   timeout: 180_000,
 }
 ```
 
-Playwright automatically starts the development server with mocks enabled before running tests.
+Playwright automatically starts the development server before running tests.
 
 ### Test Environment
 
@@ -107,27 +92,30 @@ test('shows UI error when API key is missing', async ({ page }) => {
 });
 ```
 
-#### 2. Mock Streaming Flow
+#### 2. Real API Streaming Flow
 ```typescript
-test('can send a prompt and receive a mock streaming result', async ({ page }) => {
-  // Set up valid state
-  await page.addInitScript(() => {
-    localStorage.setItem('openrouter_api_key', 'test');
-    localStorage.setItem('selected_models', JSON.stringify(['openai/gpt-5-chat', 'anthropic/claude-sonnet-4']));
-  });
+test('can send a prompt and receive a streaming result', async ({ page }) => {
+  // Skip test if no API key is provided
+  const apiKey = process.env.E2E_OPENROUTER_API_KEY;
+  test.skip(!apiKey, 'Skipping: E2E_OPENROUTER_API_KEY not set');
+
+  await page.addInitScript((key) => {
+    localStorage.setItem('openrouter_api_key', key);
+    // Use faster, cheaper models for testing
+    localStorage.setItem('selected_models', JSON.stringify(['openai/gpt-3.5-turbo']));
+  }, apiKey);
   
   await page.goto('/');
-  await page.getByPlaceholder('Enter your prompt…').fill('Test prompt');
+  await page.getByPlaceholder('Enter your prompt…').fill('Say "test complete"');
   await page.getByRole('button', { name: 'Send' }).click();
 
-  // Verify streaming indicator
-  const streaming = page.getByText('Streaming…', { exact: false });
-  await expect(streaming).toBeVisible();
+  // Wait for streaming to start
+  await expect(page.getByText('Streaming…', { exact: false })).toBeVisible({ timeout: 10000 });
 
-  // Verify mock content appears
-  await expect(page.getByText('Mock reply', { exact: false })).toBeVisible();
+  // Wait for streaming to complete and show content
+  await expect(page.locator('text=test complete')).toBeVisible({ timeout: 30000 });
 
-  // Verify UI controls
+  // Verify UI controls are present after completion
   await expect(page.getByRole('button', { name: /Copy/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /Stop/i })).toBeDisabled();
 });
@@ -175,23 +163,25 @@ pnpm test:e2e:ci
 - Advanced parameter validation
 - Error recovery flows
 
-## Benefits of Mock Approach
+## Benefits of Real API Testing
 
-1. **Deterministic**: Tests always produce the same results
-2. **Fast**: No network calls, instant responses
-3. **Reliable**: No dependency on external API availability
-4. **Cost-effective**: No API key usage during testing
-5. **Offline-capable**: Tests run without internet connection
-6. **Secure**: No real credentials needed in CI/CD
+1. **Realistic**: Tests actual API responses and streaming behavior
+2. **Comprehensive**: Covers full integration including network layer
+3. **Error detection**: Catches real API changes, rate limits, and issues
+4. **Confidence**: Provides high confidence in production behavior
+5. **Flexible**: Gracefully skips when API key not available
 
-## Mock vs Real API Testing
+## API Testing Strategy
 
-| Aspect | Mock Tests | Real API Tests |
-|--------|------------|----------------|
-| Speed | ⚡ Very fast | 🐌 Slow |
-| Reliability | ✅ 100% reliable | ❌ Network dependent |
-| Cost | 💰 Free | 💸 API usage fees |
-| Coverage | 🎯 UI/UX focused | 🔗 Integration focused |
-| CI/CD | ✅ Always available | ❌ Requires secrets |
+| Aspect | Without API Key | With API Key |
+|--------|-----------------|---------------|
+| Speed | ⚡ Very fast | 🐌 Moderate |
+| Coverage | 🎯 UI/UX only | 🔗 Full integration |
+| Cost | 💰 Free | 💸 Minimal (cheap models) |
+| CI/CD | ✅ Always runs | ⚙️ Requires secret |
+| Reliability | ✅ No dependencies | 🌐 Network dependent |
 
-The mock approach covers UI flows and user interactions, while real API testing should be done manually or in a separate integration test suite.
+**Recommended approach**: 
+- Local development: Use real API key for comprehensive testing
+- CI/CD: Skip API tests or use secrets for critical pipelines
+- Models: Use cost-effective options like `gpt-3.5-turbo`
