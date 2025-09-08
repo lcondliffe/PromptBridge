@@ -31,6 +31,7 @@ function defaultHeaders(apiKey: string): HeadersInit {
 export async function fetchModels(apiKey: string): Promise<ModelInfo[]> {
   // Mock for E2E tests
   if (isMockOpenRouter()) {
+    console.log('[MOCK] fetchModels: returning mock models');
     return [
       { id: 'openai/gpt-5-chat', name: 'OpenAI: GPT-5 Chat' },
       { id: 'anthropic/claude-sonnet-4', name: 'Anthropic: Claude Sonnet 4' },
@@ -270,18 +271,23 @@ export function streamChatWithRetry(
 ): StreamHandle {
   // Mock for E2E tests
   if (isMockOpenRouter()) {
+    console.log('[MOCK] streamChatWithRetry: using mock streaming for model', params.model);
     const abortController = new AbortController();
     const full = `Mock reply: Hello from ${params.model}.`;
     const chunks = ['Mock reply: ', 'Hello ', 'from ', `${params.model}`, '.'];
     let i = 0;
     let intervalId: NodeJS.Timeout | null = null;
     
-    const promise = (async () => {
-      if (abortController.signal.aborted) return;
+    const promise = new Promise<void>((resolve) => {
+      if (abortController.signal.aborted) {
+        resolve();
+        return;
+      }
       
       intervalId = setInterval(() => {
         if (abortController.signal.aborted) {
           if (intervalId) clearInterval(intervalId);
+          resolve();
           return;
         }
         
@@ -291,9 +297,10 @@ export function streamChatWithRetry(
         } else {
           if (intervalId) clearInterval(intervalId);
           callbacks.onDone?.(full);
+          resolve();
         }
       }, 60);
-    })();
+    });
     
     // Handle abort
     const originalAbort = abortController.abort.bind(abortController);
