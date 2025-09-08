@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "node scripts/db-init.mjs",
     "dev": "next dev",
+    "dev:e2e": "NEXT_PUBLIC_E2E_MOCK_OPENROUTER=1 next dev",
     "build": "pnpm prisma:generate && next build",
     "prestart": "node scripts/db-init.mjs",
     "start": "next start",

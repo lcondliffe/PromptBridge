@@ -13,6 +13,9 @@ interface RetryConfig {
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
 
+// Mock gating for E2E tests
+export const isMockOpenRouter = () => process.env.NEXT_PUBLIC_E2E_MOCK_OPENROUTER === '1';
+
 function defaultHeaders(apiKey: string): HeadersInit {
   const trimmed = (apiKey ?? '').trim();
   return {
@@ -26,6 +29,14 @@ function defaultHeaders(apiKey: string): HeadersInit {
 }
 
 export async function fetchModels(apiKey: string): Promise<ModelInfo[]> {
+  // Mock for E2E tests
+  if (isMockOpenRouter()) {
+    return [
+      { id: 'openai/gpt-5-chat', name: 'OpenAI: GPT-5 Chat' },
+      { id: 'anthropic/claude-sonnet-4', name: 'Anthropic: Claude Sonnet 4' },
+      { id: 'google/gemini-2.5-flash', name: 'Google: Gemini 2.5 Flash' },
+    ];
+  }
   const res = await fetch(`${BASE_URL}/models`, {
     method: 'GET',
     headers: defaultHeaders(apiKey),
@@ -257,6 +268,42 @@ export function streamChatWithRetry(
   callbacks: RetryableStreamCallbacks = {},
   retryConfig: RetryConfig = {}
 ): StreamHandle {
+  // Mock for E2E tests
+  if (isMockOpenRouter()) {
+    const abortController = new AbortController();
+    const full = `Mock reply: Hello from ${params.model}.`;
+    const chunks = ['Mock reply: ', 'Hello ', 'from ', `${params.model}`, '.'];
+    let i = 0;
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    const promise = (async () => {
+      if (abortController.signal.aborted) return;
+      
+      intervalId = setInterval(() => {
+        if (abortController.signal.aborted) {
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+        
+        if (i < chunks.length) {
+          callbacks.onToken?.(chunks[i]);
+          i++;
+        } else {
+          if (intervalId) clearInterval(intervalId);
+          callbacks.onDone?.(full);
+        }
+      }, 60);
+    })();
+    
+    // Handle abort
+    const originalAbort = abortController.abort.bind(abortController);
+    abortController.abort = () => {
+      if (intervalId) clearInterval(intervalId);
+      originalAbort();
+    };
+    
+    return { abortController, promise };
+  }
   const {
     maxRetries = 3,
     baseDelayMs = 1000,
