@@ -19,8 +19,11 @@ export const metadata: Metadata = {
   title: "PromptBridge",
   description: "Prompt multiple LLMs and synthesize a consensus via OpenRouter",
   icons: {
-    icon: "/logo.webp",
-    shortcut: "/logo.webp",
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
+      { url: "/logo.webp", sizes: "192x192", type: "image/webp" },
+    ],
+    shortcut: "/favicon.ico",
     apple: "/logo.webp",
   },
 };
