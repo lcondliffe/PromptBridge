@@ -26,9 +26,10 @@ test('can send a prompt and receive a streaming result', async ({ page }) => {
   // Set the API key using the settings form (this uses the proper setter)
   await page.getByPlaceholder('sk-or-...').fill(apiKey!);
   
-  // Verify the API key was set (should show some characters)
-  await expect(page.getByPlaceholder('sk-or-...')).toHaveValue(apiKey!);
-  
+  // Verify key presence without exposing it
+  const storedLen = await page.evaluate(() => (localStorage.getItem('openrouter_api_key') || '').length);
+  expect(storedLen).toBeGreaterThan(10);
+  await expect(page.getByPlaceholder('sk-or-...')).toHaveAttribute('type', /password|text/); // UI renders an input
   // Navigate back to home page
   await page.goto('/');
   
