@@ -113,20 +113,6 @@ pnpm test:e2e --trace on
 - Trace files for debugging (retained on failure)
 - HTML reports generated for detailed analysis
 
-## File Structure
-
-```
-e2e/
-├── .auth/
-│   └── user.json              # Persisted authentication state
-├── global.setup.ts            # Clerk testing initialization
-├── auth.setup.ts              # Authentication setup and state persistence
-├── smoke.spec.ts              # Basic health checks and smoke tests
-├── home.spec.ts               # Home page functionality tests
-├── authenticated-user.spec.ts # Complete authentication flow tests
-└── README.md                  # This file
-```
-
 ## Adding New Tests
 
 When adding new E2E tests:
