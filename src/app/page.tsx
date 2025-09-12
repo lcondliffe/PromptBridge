@@ -6,6 +6,7 @@ import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChatWithRetry } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo } from "@/lib/types";
+import { usePostHog } from 'posthog-js/react';
 
 import useLocalStorage from "@/lib/useLocalStorage";
 import { useApiKey } from "@/lib/apiKey";
@@ -41,6 +42,7 @@ const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
 function HomeInner() {
 // API key handling (shared across app)
   const { apiKey } = useApiKey();
+  const posthog = usePostHog();
 
   // Models
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -275,6 +277,17 @@ function HomeInner() {
       return;
     }
     setUiError("");
+
+    // Track prompt sending event
+    posthog?.capture('prompt_sent', {
+      prompt_length: inputPrompt.length,
+      models_count: selectedModels.length,
+      models: selectedModels,
+      temperature,
+      max_tokens: maxTokens,
+      limit_words_enabled: limitWordsEnabled,
+      limit_words: limitWords
+    });
 
     // Apply prompt options
     const options: string[] = [];
@@ -584,6 +597,15 @@ function HomeInner() {
   const sendReply = async (id: string) => {
     const text = (replyInputs[id] || '').trim();
     if (!text || anyRunning) return;
+    
+    // Track reply event
+    posthog?.capture('reply_sent', {
+      model: id,
+      reply_length: text.length,
+      temperature,
+      max_tokens: maxTokens
+    });
+    
     const stop = stopStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
     const history = conversations[id] || [];
     const msgs = [] as ChatMessage[];
@@ -728,7 +750,10 @@ function HomeInner() {
                               <button
                                 className="p-1 rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
                                 aria-label={`Remove ${modelsById[id]?.name || id}`}
-                                onClick={() => setSelectedModels((prev) => prev.filter((x) => x !== id))}
+                              onClick={() => {
+                                setSelectedModels((prev) => prev.filter((x) => x !== id))
+                                posthog?.capture('model_removed', { model: id })
+                              }}
                               >
                                 ×
                               </button>
@@ -805,13 +830,15 @@ function HomeInner() {
                             <input
                               type="checkbox"
                               checked={checked}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const isAdding = e.target.checked
                                 setSelectedModels((prev) =>
-                                  e.target.checked
+                                  isAdding
                                     ? Array.from(new Set([...prev, m.id]))
                                     : prev.filter((id) => id !== m.id)
                                 )
-                              }
+                                posthog?.capture(isAdding ? 'model_selected' : 'model_deselected', { model: m.id })
+                              }}
                             />
 <VendorLogo modelId={m.id} size={18} className="shrink-0" />
                             <span className="truncate" title={m.id}>
@@ -1026,7 +1053,10 @@ function HomeInner() {
                   type="button"
                   aria-pressed={resultsLayout === 'tiled'}
                   aria-label="Tiled view"
-                  onClick={() => setResultsLayout('tiled')}
+                  onClick={() => {
+                    setResultsLayout('tiled')
+                    posthog?.capture('layout_changed', { layout: 'tiled' })
+                  }}
                   className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'tiled' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
                   title="Tiled view"
                 >
@@ -1036,7 +1066,10 @@ function HomeInner() {
                   type="button"
                   aria-pressed={resultsLayout === 'stacked'}
                   aria-label="Stacked view"
-                  onClick={() => setResultsLayout('stacked')}
+                  onClick={() => {
+                    setResultsLayout('stacked')
+                    posthog?.capture('layout_changed', { layout: 'stacked' })
+                  }}
                   className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'stacked' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
                   title="Stacked view"
                 >
@@ -1086,6 +1119,7 @@ function HomeInner() {
                       onClick={() => {
                         const text = toCopyString(id);
                         navigator.clipboard.writeText(text).catch(() => {});
+                        posthog?.capture('transcript_copied', { model: id });
                       }}
                     >
                       <Copy className="size-3.5" /> Copy
@@ -1153,6 +1187,7 @@ function HomeInner() {
                       const id = expandedId as string;
                       const text = toCopyString(id);
                       navigator.clipboard.writeText(text).catch(() => {});
+                      posthog?.capture('transcript_copied', { model: id, context: 'expanded' });
                     }}
                   >
                     <Copy className="size-3.5" /> Copy

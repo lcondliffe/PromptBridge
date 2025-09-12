@@ -4,6 +4,10 @@ import "./globals.css";
 import "prismjs/themes/prism-tomorrow.css";
 import ClientShell from "./ClientShell";
 import ClientAuthWrapper from "@/components/ClientAuthWrapper";
+import PHProvider from "@/components/PostHogProvider";
+import { PostHogIdentifier } from "@/components/PostHogIdentifier";
+import PostHogPageView from "@/components/PostHogPageView";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,10 +47,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClientAuthWrapper>
-          {/* Client shell wraps header, sidebar and main */}
-          <ClientShell>{children}</ClientShell>
-        </ClientAuthWrapper>
+        <PHProvider>
+          <ClientAuthWrapper>
+            <PostHogIdentifier />
+            <Suspense fallback={null}>
+              <PostHogPageView />
+            </Suspense>
+            {/* Client shell wraps header, sidebar and main */}
+            <ClientShell>{children}</ClientShell>
+          </ClientAuthWrapper>
+        </PHProvider>
       </body>
     </html>
   );

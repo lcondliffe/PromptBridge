@@ -32,6 +32,9 @@ importers:
       posthog-js:
         specifier: ^1.262.0
         version: 1.262.0
+      posthog-node:
+        specifier: ^5.8.4
+        version: 5.8.4
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
@@ -2016,6 +2019,10 @@ packages:
         optional: true
       rrweb-snapshot:
         optional: true
+
+  posthog-node@5.8.4:
+    resolution: {integrity: sha512-O0lObQqeIiggNCjc5BQx5PaHqPzXxwKnCJdb+DuNkbDO6Vc442SQ5FDv0WjPd5Ejfwme1uGZmM5/xhHWKegFfQ==}
+    engines: {node: '>=20'}
 
   preact@10.27.1:
     resolution: {integrity: sha512-V79raXEWch/rbqoNc7nT9E4ep7lu+mI3+sBmfRD4i1M73R3WLYcCtdI0ibxGVf4eQL8ZIz2nFacqEC+rmnOORQ==}
@@ -4672,6 +4679,10 @@ snapshots:
       fflate: 0.4.8
       preact: 10.27.1
       web-vitals: 4.2.4
+
+  posthog-node@5.8.4:
+    dependencies:
+      '@posthog/core': 1.0.2
 
   preact@10.27.1: {}
 
