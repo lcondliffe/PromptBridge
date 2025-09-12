@@ -28,6 +28,10 @@ A clean web UI to send a single prompt to multiple LLMs (via OpenRouter) and vie
 
 <img src="https://cdn.simpleicons.org/pnpm/F69220" alt="pnpm" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/eslint/4B32C3" alt="ESLint" height="34" /> &nbsp;&nbsp; <img src="https://cdn.simpleicons.org/podman/892CA0" alt="Podman" height="34" />
 
+### Analytics
+
+<img src="https://cdn.simpleicons.org/posthog/000000" alt="PostHog" height="34" />
+
 ## Security
 - Your API key is stored in your browser’s localStorage only; no backend is used.
 - The app sends requests directly to OpenRouter.
