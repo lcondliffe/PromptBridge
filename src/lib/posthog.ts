@@ -4,7 +4,7 @@ import type { PostHog } from 'posthog-js';
 export const captureEvent = (
   posthog: PostHog | null | undefined,
   event: string,
-  properties?: Record<string, any>
+  properties?: Record<string, unknown>
 ) => {
   if (!posthog) return;
   posthog.capture(event, properties);
