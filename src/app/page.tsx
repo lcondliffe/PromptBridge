@@ -9,6 +9,7 @@ import type { ChatMessage, ModelInfo } from "@/lib/types";
 import { usePostHog } from 'posthog-js/react';
 
 import useLocalStorage from "@/lib/useLocalStorage";
+import { captureEvent } from "@/lib/posthog";
 import { useApiKey } from "@/lib/apiKey";
 import Markdown from "@/components/Markdown";
 import VendorLogo from "@/components/VendorLogo";
@@ -279,7 +280,7 @@ function HomeInner() {
     setUiError("");
 
     // Track prompt sending event
-    posthog?.capture('prompt_sent', {
+    captureEvent(posthog, 'prompt_sent', {
       prompt_length: inputPrompt.length,
       models_count: selectedModels.length,
       models: selectedModels,
@@ -599,7 +600,7 @@ function HomeInner() {
     if (!text || anyRunning) return;
     
     // Track reply event
-    posthog?.capture('reply_sent', {
+    captureEvent(posthog, 'reply_sent', {
       model: id,
       reply_length: text.length,
       temperature,
@@ -752,7 +753,7 @@ function HomeInner() {
                                 aria-label={`Remove ${modelsById[id]?.name || id}`}
                               onClick={() => {
                                 setSelectedModels((prev) => prev.filter((x) => x !== id))
-                                posthog?.capture('model_removed', { model: id })
+                                captureEvent(posthog, 'model_removed', { model: id })
                               }}
                               >
                                 ×
@@ -837,7 +838,7 @@ function HomeInner() {
                                     ? Array.from(new Set([...prev, m.id]))
                                     : prev.filter((id) => id !== m.id)
                                 )
-                                posthog?.capture(isAdding ? 'model_selected' : 'model_deselected', { model: m.id })
+                                captureEvent(posthog, isAdding ? 'model_selected' : 'model_deselected', { model: m.id })
                               }}
                             />
 <VendorLogo modelId={m.id} size={18} className="shrink-0" />
@@ -1055,7 +1056,7 @@ function HomeInner() {
                   aria-label="Tiled view"
                   onClick={() => {
                     setResultsLayout('tiled')
-                    posthog?.capture('layout_changed', { layout: 'tiled' })
+                    captureEvent(posthog, 'layout_changed', { layout: 'tiled' })
                   }}
                   className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'tiled' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
                   title="Tiled view"
@@ -1068,7 +1069,7 @@ function HomeInner() {
                   aria-label="Stacked view"
                   onClick={() => {
                     setResultsLayout('stacked')
-                    posthog?.capture('layout_changed', { layout: 'stacked' })
+                    captureEvent(posthog, 'layout_changed', { layout: 'stacked' })
                   }}
                   className={`px-2 py-1 text-xs rounded-md border ${resultsLayout === 'stacked' ? 'border-white/20 bg-white/10' : 'border-transparent hover:bg-white/10'}`}
                   title="Stacked view"
@@ -1119,7 +1120,7 @@ function HomeInner() {
                       onClick={() => {
                         const text = toCopyString(id);
                         navigator.clipboard.writeText(text).catch(() => {});
-                        posthog?.capture('transcript_copied', { model: id });
+                        captureEvent(posthog, 'transcript_copied', { model: id });
                       }}
                     >
                       <Copy className="size-3.5" /> Copy
@@ -1187,7 +1188,7 @@ function HomeInner() {
                       const id = expandedId as string;
                       const text = toCopyString(id);
                       navigator.clipboard.writeText(text).catch(() => {});
-                      posthog?.capture('transcript_copied', { model: id, context: 'expanded' });
+                      captureEvent(posthog, 'transcript_copied', { model: id, context: 'expanded' });
                     }}
                   >
                     <Copy className="size-3.5" /> Copy
