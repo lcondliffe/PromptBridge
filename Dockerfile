@@ -31,6 +31,13 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy the full workspace
 COPY . .
 
+# Accept version as build argument and write to version file
+ARG VERSION=0.0.0-unknown
+RUN set -eu; \
+    EFFECTIVE_VERSION="$VERSION"; \
+    mkdir -p public; \
+    printf "%s" "$EFFECTIVE_VERSION" | tee public/version.txt
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 

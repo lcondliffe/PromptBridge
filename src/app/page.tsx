@@ -13,6 +13,7 @@ import { captureEvent } from "@/lib/posthog";
 import { useApiKey } from "@/lib/apiKey";
 import Markdown from "@/components/Markdown";
 import VendorLogo from "@/components/VendorLogo";
+import { VersionDisplay } from "@/components/VersionDisplay";
 
 // Lightweight tooltip component
 function Tip({ text, children }: { text: string; children: ReactNode }) {
@@ -1244,6 +1245,9 @@ function HomeInner() {
         <footer className="mt-10 mb-6 text-xs opacity-70 text-center">
           Powered by OpenRouter. API key stored locally. No server.
         </footer>
+        
+        {/* Version display in bottom-right corner */}
+        <VersionDisplay />
       </div>
     </div>
   );
