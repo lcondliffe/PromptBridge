@@ -38,4 +38,4 @@ $CONTAINER_CMD build \
 echo
 echo "Build complete!"
 echo "To run: $CONTAINER_CMD run -p 3000:3000 promptbridge:$TAG"
-echo "To verify version: curl http://localhost:3000/version.txt"
+echo "To verify version: curl http://localhost:3000/api/version"

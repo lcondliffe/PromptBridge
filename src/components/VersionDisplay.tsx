@@ -8,7 +8,7 @@ export function VersionDisplay() {
   useEffect(() => {
     const fetchVersion = async () => {
       try {
-        const response = await fetch("/version.txt");
+        const response = await fetch("/api/version");
         if (response.ok) {
           const text = await response.text();
           setVersion(text.trim() || "unknown");
@@ -26,7 +26,8 @@ export function VersionDisplay() {
     <div
       className="fixed right-3 bottom-2 text-xs opacity-60 pointer-events-none z-50"
       style={{
-        fontSize: "10px",
+        fontSize: "14px",
+        fontWeight: "bold",
         color: "rgb(161 161 170)", // zinc-400
       }}
     >

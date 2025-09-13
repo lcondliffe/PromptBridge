@@ -38,6 +38,9 @@ RUN set -eu; \
     mkdir -p public; \
     printf "%s" "$EFFECTIVE_VERSION" | tee public/version.txt
 
+# Store version for runtime use
+ENV NEXT_PUBLIC_APP_VERSION="$VERSION"
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -56,16 +59,19 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Accept version from builder stage
+ARG VERSION=0.0.0-unknown
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+ENV NEXT_PUBLIC_APP_VERSION="$VERSION"
 
 # Copy the standalone server and static files from the builder
 # .next/standalone contains server.js and a pruned node_modules
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Static assets
+# Static assets (including version.txt)
 COPY --from=builder /app/public ./public
 
 # Ensure Next.js cache dir is writable by the node user
