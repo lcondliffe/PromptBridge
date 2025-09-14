@@ -1,4 +1,4 @@
-import type { ChatParams, ModelInfo, StreamCallbacks, StreamHandle } from './types';
+import type { ChatParams, ModelInfo, StreamCallbacks, StreamHandle, ResponseMetrics } from './types';
 import { log } from './logger';
 
 interface RetryableStreamCallbacks extends StreamCallbacks {
@@ -12,6 +12,28 @@ interface RetryConfig {
 }
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
+
+export interface BalanceInfo {
+  data: {
+    label?: string;
+    usage: number;
+    limit: number | null;
+    is_free_tier?: boolean;
+    rate_limit?: {
+      requests: number;
+      interval: string;
+    };
+  };
+}
+
+export interface CostEstimate {
+  promptTokens: number;
+  completionTokens: number;
+  promptCost: number;
+  completionCost: number;
+  totalCost: number;
+  model: string;
+}
 
 function defaultHeaders(apiKey: string): HeadersInit {
   const trimmed = (apiKey ?? '').trim();
@@ -40,12 +62,31 @@ export async function fetchModels(apiKey: string): Promise<ModelInfo[]> {
   const parsed: ModelInfo[] = [];
   for (const raw of listRaw) {
     if (typeof raw !== 'object' || raw === null) continue;
-    const o = raw as { id?: unknown; name?: unknown; context_length?: unknown };
+    const o = raw as { 
+      id?: unknown; 
+      name?: unknown; 
+      context_length?: unknown;
+      pricing?: unknown;
+      supported_parameters?: unknown;
+      architecture?: unknown;
+      description?: unknown;
+    };
     const id = typeof o.id === 'string' ? o.id : o.id != null ? String(o.id) : '';
     if (!id) continue;
     const mi: ModelInfo = { id };
     if (typeof o.name === 'string') mi.name = o.name;
     if (typeof o.context_length === 'number') mi.context_length = o.context_length;
+    if (typeof o.description === 'string') mi.description = o.description;
+    if (typeof o.pricing === 'object' && o.pricing) mi.pricing = o.pricing as ModelInfo['pricing'];
+    if (Array.isArray(o.supported_parameters)) mi.supported_parameters = o.supported_parameters;
+    if (typeof o.architecture === 'object' && o.architecture) mi.architecture = o.architecture as ModelInfo['architecture'];
+    
+    // Extract provider from model id
+    const providerMatch = id.split('/');
+    if (providerMatch.length > 1) {
+      mi.provider = providerMatch[0];
+    }
+    
     parsed.push(mi);
   }
   return parsed;
@@ -71,11 +112,16 @@ export function streamChat(
     top_logprobs,
     response_format,
     structured_outputs,
+    tools,
+    tool_choice,
+    reasoning,
+    include_reasoning,
     debug,
     traceId,
     streamTimeoutMs,
+    trackMetrics = false,
   }: ChatParams,
-  { onToken, onDone, onError }: StreamCallbacks = {}
+  { onToken, onDone, onError, onMetrics }: StreamCallbacks = {}
 ): StreamHandle {
   const abortController = new AbortController();
 
@@ -99,6 +145,11 @@ export function streamChat(
   if (typeof top_logprobs === 'number') body.top_logprobs = top_logprobs;
   if (response_format) body.response_format = response_format;
   if (typeof structured_outputs === 'boolean') body.structured_outputs = structured_outputs;
+  // Advanced features
+  if (Array.isArray(tools) && tools.length > 0) body.tools = tools;
+  if (tool_choice) body.tool_choice = tool_choice;
+  if (reasoning?.enabled) body.reasoning = reasoning;
+  if (typeof include_reasoning === 'boolean') body.include_reasoning = include_reasoning;
 
   const promise = (async () => {
     try {
@@ -143,7 +194,24 @@ export function streamChat(
       let full = '';
       const startedAt = Date.now();
       let firstTokenLogged = false;
+      let firstTokenTime: number | undefined;
       let lastChunkTime = Date.now();
+      let tokenCount = 0;
+      
+      // Initialize metrics tracking
+      const metrics: ResponseMetrics = {
+        startTime: startedAt,
+        modelUsed: model,
+      };
+      
+      // Initialize provider tracking
+      let responseProvider: string | undefined;
+      
+      // Extract provider from response headers for metrics
+      responseProvider = res.headers.get('openrouter-provider') || undefined;
+      if (responseProvider) {
+        metrics.provider = responseProvider;
+      }
       
       // Default timeout: 15s for GPT-5, 30s for others
       const timeoutMs = streamTimeoutMs ?? (model.includes('gpt-5') ? 15000 : 30000);
@@ -186,10 +254,20 @@ export function streamChat(
               const dataStr = trimmed.slice('data:'.length).trim();
               if (dataStr === '[DONE]') {
                 if (timeoutId) clearTimeout(timeoutId);
+                const endTime = Date.now();
+                metrics.endTime = endTime;
+                metrics.totalDuration = endTime - startedAt;
+                
                 if (debug) {
-                  log('info','chat','stream_completed',{ traceId, totalChars: full.length, durationMs: Date.now()-startedAt });
+                  log('info','chat','stream_completed',{ 
+                    traceId, 
+                    totalChars: full.length, 
+                    durationMs: metrics.totalDuration,
+                    tokensPerSecond: metrics.tokensPerSecond,
+                    firstTokenLatency: metrics.firstTokenLatency 
+                  });
                 }
-                onDone?.(full);
+                onDone?.(full, undefined, metrics);
                 return;
               }
               try {
@@ -206,10 +284,41 @@ export function streamChat(
                 const contentChunk = delta?.content ?? payload?.choices?.[0]?.text ?? '';
                 if (contentChunk) {
                   full += contentChunk;
-                  onToken?.(contentChunk);
-                  if (debug && !firstTokenLogged) {
+                  tokenCount++;
+                  
+                  // Track first token for metrics
+                  if (!firstTokenLogged) {
                     firstTokenLogged = true;
-                    log('info','chat','first_token',{ traceId, ms: Date.now()-startedAt });
+                    firstTokenTime = Date.now();
+                    metrics.firstTokenTime = firstTokenTime;
+                    metrics.firstTokenLatency = firstTokenTime - startedAt;
+                    
+                    if (debug) {
+                      log('info','chat','first_token',{ traceId, ms: metrics.firstTokenLatency });
+                    }
+                    
+                    if (trackMetrics && onMetrics) {
+                      onMetrics({
+                        ...metrics,
+                        firstTokenLatency: metrics.firstTokenLatency,
+                      });
+                    }
+                  }
+                  
+                  onToken?.(contentChunk);
+                  
+                  // Update real-time metrics
+                  if (trackMetrics && onMetrics && firstTokenTime) {
+                    const currentTime = Date.now();
+                    const streamDuration = currentTime - firstTokenTime;
+                    metrics.totalTokens = tokenCount;
+                    metrics.tokensPerSecond = streamDuration > 0 ? (tokenCount / streamDuration) * 1000 : 0;
+                    
+                    onMetrics({
+                      ...metrics,
+                      totalTokens: metrics.totalTokens,
+                      tokensPerSecond: metrics.tokensPerSecond,
+                    });
                   }
                 }
               } catch (parseError) {
@@ -226,10 +335,20 @@ export function streamChat(
       }
       // End of stream without [DONE] - this is normal for some models like GPT-5
       if (timeoutId) clearTimeout(timeoutId);
+      const endTime = Date.now();
+      metrics.endTime = endTime;
+      metrics.totalDuration = endTime - startedAt;
+      
       if (debug) {
-        log('info','chat','stream_ended_without_done',{ traceId, durationMs: Date.now()-startedAt, chars: full.length });
+        log('info','chat','stream_ended_without_done',{ 
+          traceId, 
+          durationMs: metrics.totalDuration, 
+          chars: full.length,
+          tokensPerSecond: metrics.tokensPerSecond,
+          firstTokenLatency: metrics.firstTokenLatency 
+        });
       }
-      onDone?.(full);
+      onDone?.(full, undefined, metrics);
     } catch (err) {
       if (abortController.signal.aborted) {
         if (debug) log('warn','chat','aborted',{ traceId });
@@ -249,6 +368,67 @@ export function streamChat(
   })();
 
   return { abortController, promise };
+}
+
+// Balance and cost utilities
+export async function checkBalance(apiKey: string): Promise<BalanceInfo> {
+  const res = await fetch(`${BASE_URL}/auth/key`, {
+    method: 'GET',
+    headers: defaultHeaders(apiKey),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to check balance: ${res.status} ${res.statusText} ${text}`);
+  }
+  return res.json();
+}
+
+export function estimateTokens(text: string): number {
+  // Rough estimation: ~4 characters per token for English text
+  return Math.ceil(text.length / 4);
+}
+
+export function estimateCost(
+  promptText: string,
+  expectedCompletionTokens: number,
+  model: ModelInfo
+): CostEstimate {
+  const promptTokens = estimateTokens(promptText);
+  const completionTokens = expectedCompletionTokens;
+  
+  const promptPrice = parseFloat(model.pricing?.prompt || '0');
+  const completionPrice = parseFloat(model.pricing?.completion || '0');
+  
+  const promptCost = (promptTokens / 1000000) * promptPrice;
+  const completionCost = (completionTokens / 1000000) * completionPrice;
+  const totalCost = promptCost + completionCost;
+  
+  return {
+    promptTokens,
+    completionTokens,
+    promptCost,
+    completionCost,
+    totalCost,
+    model: model.id,
+  };
+}
+
+export function getModelCapabilities(model: ModelInfo): {
+  supportsTools: boolean;
+  supportsImages: boolean;
+  supportsReasoning: boolean;
+  supportsWebSearch: boolean;
+} {
+  const params = model.supported_parameters || [];
+  const inputModalities = model.architecture?.input_modalities || [];
+  const outputModalities = model.architecture?.output_modalities || [];
+  
+  return {
+    supportsTools: params.includes('tools') || params.includes('tool_choice'),
+    supportsImages: inputModalities.includes('image') || outputModalities.includes('image'),
+    supportsReasoning: params.includes('reasoning') || params.includes('include_reasoning'),
+    supportsWebSearch: Boolean(model.pricing?.web_search && model.pricing.web_search !== '0'),
+  };
 }
 
 // Wrapper function that adds retry logic to streamChat

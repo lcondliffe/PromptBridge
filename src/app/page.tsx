@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChatWithRetry } from "@/lib/openrouter";
-import type { ChatMessage, ModelInfo } from "@/lib/types";
+import type { ChatMessage, ModelInfo, ResponseMetrics, ToolDefinition } from "@/lib/types";
+import { CompactPerformanceMetrics } from "@/components/PerformanceMetrics";
+import { CompactBalanceDisplay, CostEstimator } from "@/components/BalanceDisplay";
 import { usePostHog } from 'posthog-js/react';
 
 import useLocalStorage from "@/lib/useLocalStorage";
@@ -78,6 +80,13 @@ function HomeInner() {
     'tiled'
   );
 
+  // Advanced features state
+  const [reasoningEnabled, setReasoningEnabled] = useLocalStorage<boolean>('reasoning_enabled', false);
+  const [reasoningEffort, setReasoningEffort] = useLocalStorage<'low' | 'medium' | 'high'>('reasoning_effort', 'medium');
+  const [toolsEnabled, setToolsEnabled] = useLocalStorage<boolean>('tools_enabled', false);
+  const [selectedTools, setSelectedTools] = useLocalStorage<ToolDefinition[]>('selected_tools', []);
+  const [webSearchEnabled, setWebSearchEnabled] = useLocalStorage<boolean>('web_search_enabled', false);
+
   // Prompt options
   const [limitWordsEnabled, setLimitWordsEnabled] = useLocalStorage<boolean>(
     "limit_words_enabled",
@@ -102,6 +111,7 @@ function HomeInner() {
     draft: string;
     error?: string;
     running: boolean;
+    metrics?: Partial<ResponseMetrics>;
   };
   const [panes, setPanes] = useState<Record<string, Pane>>({});
   const controllersRef = useRef<Record<string, AbortController>>({});
@@ -381,6 +391,10 @@ function HomeInner() {
           stop,
           debug: true,
           traceId,
+          // Enhanced features
+          trackMetrics: true,
+          tools: toolsEnabled ? selectedTools : undefined,
+          reasoning: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined,
         },
         {
           onToken: (chunk) =>
@@ -388,7 +402,11 @@ function HomeInner() {
               ...p,
               [model]: { ...(p[model] || { draft: '' }), draft: (p[model]?.draft || '') + chunk, running: true },
             })),
-          onDone: (full) => {
+          onDone: (full, usage, metrics) => {
+            setPanes((p) => ({
+              ...p,
+              [model]: { ...(p[model] || { draft: '' }), running: false, metrics },
+            }));
             setConversations((prev) => {
               const next = { ...prev } as Record<string, ChatMessage[]>;
               const arr = next[model] ? [...next[model]] : [];
@@ -651,11 +669,18 @@ function HomeInner() {
         stop,
         debug: true,
         traceId,
+        // Enhanced features
+        trackMetrics: true,
+        tools: toolsEnabled ? selectedTools : undefined,
+        reasoning: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined,
       },
       {
         onToken: (chunk) =>
           setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
-        onDone: (full) => {
+        onMetrics: (metrics) =>
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '', running: true }), metrics } })),
+        onDone: (full, usage, metrics) => {
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', metrics } }));
           setConversations((prev) => {
             const next = { ...prev } as Record<string, ChatMessage[]>;
             const arr = next[id] ? [...next[id]] : [];
@@ -669,7 +694,6 @@ function HomeInner() {
               void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
             }
           } catch {}
-          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
         },
         onError: (err) =>
           setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
@@ -699,6 +723,21 @@ function HomeInner() {
             <span className="text-sm">{uiError}</span>
             <button className="px-2 py-1 text-xs rounded-md border border-white/10 hover:bg-white/10" onClick={() => setUiError("")}>Dismiss</button>
           </div>
+        )}
+
+        {/* Balance and Cost Info */}
+        {apiKey && (
+          <section className="mb-4">
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <CompactBalanceDisplay apiKey={apiKey} />
+              <CostEstimator 
+                promptText={input}
+                selectedModels={selectedModels}
+                models={models}
+                maxTokens={maxTokens || 1024}
+              />
+            </div>
+          </section>
         )}
 
         {/* Controls row */}
@@ -1098,6 +1137,16 @@ function HomeInner() {
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Performance Metrics */}
+                  {panes[id]?.metrics && (
+                    <div className="mb-3">
+                      <CompactPerformanceMetrics 
+                        metrics={panes[id]?.metrics || null}
+                        isStreaming={panes[id]?.running || false}
+                      />
+                    </div>
+                  )}
                   <div className={resultsLayout === 'stacked' ? 'pr-1' : 'max-h-[320px] overflow-auto pr-1'}>
                     {renderTranscript(id)}
                   </div>
