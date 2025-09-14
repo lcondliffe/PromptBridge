@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Brain, Wrench, Globe, Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import type { ModelInfo, ToolDefinition } from '@/lib/types';
+import { Brain, Globe, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import type { ModelInfo } from '@/lib/types';
 import { getModelCapabilities } from '@/lib/openrouter';
 
 interface AdvancedSettingsProps {
@@ -10,57 +10,13 @@ interface AdvancedSettingsProps {
   reasoningEnabled: boolean;
   reasoningEffort: 'low' | 'medium' | 'high';
   onReasoningChange: (enabled: boolean, effort: 'low' | 'medium' | 'high') => void;
-  // Tools settings
-  toolsEnabled: boolean;
-  selectedTools: ToolDefinition[];
-  onToolsChange: (enabled: boolean, tools: ToolDefinition[]) => void;
+  // Tools settings (temporarily disabled)
   // Web search settings
   webSearchEnabled: boolean;
   onWebSearchChange: (enabled: boolean) => void;
   className?: string;
 }
 
-const BUILTIN_TOOLS: ToolDefinition[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'web_search',
-      description: 'Search the web for current information',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'The search query to execute',
-          },
-          num_results: {
-            type: 'integer',
-            description: 'Number of results to return (default: 5)',
-            default: 5,
-          },
-        },
-        required: ['query'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_current_time',
-      description: 'Get the current date and time',
-      parameters: {
-        type: 'object',
-        properties: {
-          timezone: {
-            type: 'string',
-            description: 'Timezone (default: UTC)',
-            default: 'UTC',
-          },
-        },
-      },
-    },
-  },
-];
 
 export default function AdvancedSettings({
   selectedModels,
@@ -68,15 +24,11 @@ export default function AdvancedSettings({
   reasoningEnabled,
   reasoningEffort,
   onReasoningChange,
-  toolsEnabled,
-  selectedTools,
-  onToolsChange,
   webSearchEnabled,
   onWebSearchChange,
   className = '',
 }: AdvancedSettingsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showToolEditor, setShowToolEditor] = useState(false);
 
   // Check capabilities across selected models
   const capabilities = selectedModels.map(modelId => {
@@ -85,18 +37,9 @@ export default function AdvancedSettings({
   }).filter(Boolean);
 
   const supportsReasoning = capabilities.some(cap => cap?.supportsReasoning);
-  const supportsTools = capabilities.some(cap => cap?.supportsTools);
+  const supportsTools = false;
   const supportsWebSearch = capabilities.some(cap => cap?.supportsWebSearch);
 
-  const handleToolToggle = (tool: ToolDefinition, enabled: boolean) => {
-    if (enabled) {
-      const newTools = [...selectedTools, tool];
-      onToolsChange(toolsEnabled, newTools);
-    } else {
-      const newTools = selectedTools.filter(t => t.function.name !== tool.function.name);
-      onToolsChange(toolsEnabled, newTools);
-    }
-  };
 
   if (selectedModels.length === 0) {
     return null;

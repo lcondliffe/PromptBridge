@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Filter, Image, Wrench, Brain, Globe, Zap, DollarSign } from 'lucide-react';
+import { Search, Filter, Image as ImageIcon, Wrench, Brain, Globe, DollarSign } from 'lucide-react';
 import { getModelCapabilities } from '@/lib/openrouter';
 import type { ModelInfo } from '@/lib/types';
 
@@ -23,7 +23,7 @@ export default function EnhancedModelSelector({
   const [showDetails, setShowDetails] = useState(false);
 
   const filteredModels = useMemo(() => {
-    let filtered = models.filter(model => {
+    const filtered = models.filter(model => {
       // Search filter
       const matchesSearch = searchTerm === '' || 
         model.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -224,7 +224,7 @@ export default function EnhancedModelSelector({
                         )}
                         {capabilities.supportsImages && (
                           <div className="flex items-center gap-1 text-xs text-green-400">
-                            <Image className="size-3" />
+                            <ImageIcon className="size-3" />
                             <span>Vision</span>
                           </div>
                         )}

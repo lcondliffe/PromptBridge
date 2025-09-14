@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChatWithRetry } from "@/lib/openrouter";
-import type { ChatMessage, ModelInfo, ResponseMetrics, ToolDefinition } from "@/lib/types";
+import type { ChatMessage, ModelInfo, ResponseMetrics } from "@/lib/types";
 import { CompactPerformanceMetrics } from "@/components/PerformanceMetrics";
 import { CompactBalanceDisplay } from "@/components/BalanceDisplay";
 import { usePostHog } from 'posthog-js/react';
@@ -83,8 +83,6 @@ function HomeInner() {
   // Advanced features state
   const [reasoningEnabled, setReasoningEnabled] = useLocalStorage<boolean>('reasoning_enabled', false);
   const [reasoningEffort, setReasoningEffort] = useLocalStorage<'low' | 'medium' | 'high'>('reasoning_effort', 'medium');
-  const [toolsEnabled, setToolsEnabled] = useLocalStorage<boolean>('tools_enabled', false);
-  const [selectedTools, setSelectedTools] = useLocalStorage<ToolDefinition[]>('selected_tools', []);
   const [webSearchEnabled, setWebSearchEnabled] = useLocalStorage<boolean>('web_search_enabled', false);
 
   // When Web Search is enabled, route requests through OpenRouter's web plugin by

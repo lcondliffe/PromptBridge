@@ -220,10 +220,7 @@ export function streamChat(
       };
       
       // Initialize provider tracking
-      let responseProvider: string | undefined;
-      
-      // Extract provider from response headers for metrics
-      responseProvider = res.headers.get('openrouter-provider') || undefined;
+      const responseProvider: string | undefined = res.headers.get('openrouter-provider') || undefined;
       if (responseProvider) {
         metrics.provider = responseProvider;
       }

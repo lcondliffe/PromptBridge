@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DollarSign, AlertTriangle, TrendingUp } from 'lucide-react';
 import { checkBalance, estimateCost, type BalanceInfo, type CostEstimate } from '@/lib/openrouter';
 import type { ModelInfo } from '@/lib/types';
@@ -21,7 +21,7 @@ export function BalanceDisplay({ apiKey, className = '' }: BalanceDisplayProps) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     if (!apiKey.trim()) return;
     
     setLoading(true);
@@ -35,11 +35,11 @@ export function BalanceDisplay({ apiKey, className = '' }: BalanceDisplayProps) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiKey]);
 
   useEffect(() => {
     fetchBalance();
-  }, [apiKey]);
+  }, [fetchBalance]);
 
   if (!apiKey.trim()) {
     return null;
