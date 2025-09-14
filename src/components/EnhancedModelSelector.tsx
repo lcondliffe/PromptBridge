@@ -87,7 +87,7 @@ export default function EnhancedModelSelector({
   const filterOptions = [
     { key: 'all', label: 'All Models', icon: null },
     { key: 'tools', label: 'Function Calling', icon: Wrench },
-    { key: 'images', label: 'Vision/Images', icon: Image },
+    { key: 'images', label: 'Vision/Images', icon: ImageIcon },
     { key: 'reasoning', label: 'Reasoning', icon: Brain },
     { key: 'web_search', label: 'Web Search', icon: Globe },
     { key: 'free', label: 'Free', icon: DollarSign },
