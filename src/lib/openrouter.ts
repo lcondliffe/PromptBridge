@@ -116,6 +116,8 @@ export function streamChat(
     tool_choice,
     reasoning,
     include_reasoning,
+    web_search,
+    plugins,
     debug,
     traceId,
     streamTimeoutMs,
@@ -150,6 +152,8 @@ export function streamChat(
   if (tool_choice) body.tool_choice = tool_choice;
   if (reasoning?.enabled) body.reasoning = reasoning;
   if (typeof include_reasoning === 'boolean') body.include_reasoning = include_reasoning;
+  if (typeof web_search === 'boolean') body.web_search = web_search;
+  if (Array.isArray(plugins) && plugins.length > 0) body.plugins = plugins;
 
   const promise = (async () => {
     try {
@@ -161,6 +165,17 @@ export function streamChat(
         void _omitMessages;
         const sanitized = { ...rest, messages_preview: preview };
         const hasAuth = Boolean((apiKey ?? '').trim());
+        
+        // Extra debug for web search
+        if (web_search !== undefined) {
+          console.log('🌐 OpenRouter Request with web_search:', {
+            model,
+            web_search,
+            bodyIncludesWebSearch: 'web_search' in body,
+            bodyWebSearchValue: body.web_search
+          });
+        }
+        
         log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions`, hasAuth });
       }
 

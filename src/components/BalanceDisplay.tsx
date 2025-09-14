@@ -29,7 +29,6 @@ export function BalanceDisplay({ apiKey, className = '' }: BalanceDisplayProps) 
     
     try {
       const result = await checkBalance(apiKey);
-      console.log('Balance API Response:', JSON.stringify(result, null, 2));
       setBalance(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balance');

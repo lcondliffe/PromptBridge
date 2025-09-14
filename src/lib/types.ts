@@ -84,6 +84,10 @@ export interface ChatParams {
   // Reasoning capabilities
   reasoning?: { enabled?: boolean; effort?: 'low' | 'medium' | 'high' };
   include_reasoning?: boolean;
+  // Web search capability (legacy provider flag)
+  web_search?: boolean;
+  // OpenRouter plugins (e.g., web plugin for model-agnostic search)
+  plugins?: { id: string }[];
   // Debugging / logging
   debug?: boolean;
   traceId?: string;
