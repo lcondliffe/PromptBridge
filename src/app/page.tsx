@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react";
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChatWithRetry } from "@/lib/openrouter";
-import type { ChatMessage, ModelInfo } from "@/lib/types";
+import type { ChatMessage, ModelInfo, ResponseMetrics } from "@/lib/types";
+import { CompactPerformanceMetrics } from "@/components/PerformanceMetrics";
+import { CompactBalanceDisplay } from "@/components/BalanceDisplay";
 import { usePostHog } from 'posthog-js/react';
 
 import useLocalStorage from "@/lib/useLocalStorage";
@@ -78,6 +80,23 @@ function HomeInner() {
     'tiled'
   );
 
+  // Advanced features state
+  const [reasoningEnabled, setReasoningEnabled] = useLocalStorage<boolean>('reasoning_enabled', false);
+  const [reasoningEffort, setReasoningEffort] = useLocalStorage<'low' | 'medium' | 'high'>('reasoning_effort', 'medium');
+  const [webSearchEnabled, setWebSearchEnabled] = useLocalStorage<boolean>('web_search_enabled', false);
+
+  // When Web Search is enabled, route requests through OpenRouter's web plugin by
+  // appending ":online" to the model slug (per OpenRouter docs). Avoid duplicating
+  // for models that already include an online variant.
+  const effectiveModelId = useCallback((id: string): string => {
+    if (!webSearchEnabled) return id;
+    // If already explicitly using the web plugin suffix
+    if (id.includes(':online')) return id;
+    // If the provider's model id already denotes an online variant (e.g. "-online")
+    if (id.endsWith('-online')) return id;
+    return `${id}:online`;
+  }, [webSearchEnabled]);
+
   // Prompt options
   const [limitWordsEnabled, setLimitWordsEnabled] = useLocalStorage<boolean>(
     "limit_words_enabled",
@@ -102,6 +121,7 @@ function HomeInner() {
     draft: string;
     error?: string;
     running: boolean;
+    metrics?: Partial<ResponseMetrics>;
   };
   const [panes, setPanes] = useState<Record<string, Pane>>({});
   const controllersRef = useRef<Record<string, AbortController>>({});
@@ -270,6 +290,14 @@ function HomeInner() {
 
   const onSend = async (inputPrompt: string) => {
     if (anyRunning) return; // Disabled while any model is running
+    
+    // Debug API key
+    console.log('🔑 API Key Debug:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length || 0,
+      apiKeyPrefix: apiKey ? `${apiKey.slice(0, 8)}...` : 'none'
+    });
+    
     if (!apiKey || apiKey.trim().length === 0) {
       setUiError("Please set your OpenRouter API key first.");
       return;
@@ -362,11 +390,23 @@ function HomeInner() {
     });
 
     const traceId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    
+    // Debug log for web search
+    console.log('🔍 Web Search Debug:', {
+      webSearchEnabled,
+      webSearchParam: webSearchEnabled ? true : undefined,
+      selectedModels,
+      modelsWithWebSearch: selectedModels.map(id => ({
+        id,
+        supportsWebSearch: modelsById[id] ? Boolean(modelsById[id].pricing?.web_search && modelsById[id].pricing?.web_search !== '0') : false
+      }))
+    });
+    
     for (const model of selectedModels) {
       const handle = streamChatWithRetry(
         {
           apiKey,
-          model,
+          model: effectiveModelId(model),
           messages: msgsByModel[model],
           temperature,
           maxTokens,
@@ -381,6 +421,11 @@ function HomeInner() {
           stop,
           debug: true,
           traceId,
+          // Enhanced features
+          trackMetrics: true,
+          reasoning: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined,
+          web_search: webSearchEnabled ? true : undefined,
+          plugins: webSearchEnabled ? [{ id: 'web' }] : undefined,
         },
         {
           onToken: (chunk) =>
@@ -388,7 +433,17 @@ function HomeInner() {
               ...p,
               [model]: { ...(p[model] || { draft: '' }), draft: (p[model]?.draft || '') + chunk, running: true },
             })),
-          onDone: (full) => {
+          onMetrics: (metrics) => {
+            setPanes((p) => ({
+              ...p,
+              [model]: { ...(p[model] || { draft: '', running: true }), metrics },
+            }));
+          },
+          onDone: (full, usage, metrics) => {
+            setPanes((p) => ({
+              ...p,
+              [model]: { ...(p[model] || { draft: '' }), running: false, metrics },
+            }));
             setConversations((prev) => {
               const next = { ...prev } as Record<string, ChatMessage[]>;
               const arr = next[model] ? [...next[model]] : [];
@@ -636,7 +691,7 @@ function HomeInner() {
     const handle = streamChatWithRetry(
       {
         apiKey,
-        model: id,
+        model: effectiveModelId(id),
         messages: msgs,
         temperature,
         maxTokens,
@@ -651,11 +706,19 @@ function HomeInner() {
         stop,
         debug: true,
         traceId,
+        // Enhanced features
+        trackMetrics: true,
+        reasoning: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined,
+        web_search: webSearchEnabled ? true : undefined,
+        plugins: webSearchEnabled ? [{ id: 'web' }] : undefined,
       },
       {
         onToken: (chunk) =>
           setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), draft: (p[id]?.draft || '') + chunk, running: true } })),
-        onDone: (full) => {
+        onMetrics: (metrics) =>
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '', running: true }), metrics } })),
+        onDone: (full, usage, metrics) => {
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', metrics } }));
           setConversations((prev) => {
             const next = { ...prev } as Record<string, ChatMessage[]>;
             const arr = next[id] ? [...next[id]] : [];
@@ -669,7 +732,6 @@ function HomeInner() {
               void sdk.conversations.messages.create(convId2, { role: 'assistant', content: full || '', model: id });
             }
           } catch {}
-          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '' } }));
         },
         onError: (err) =>
           setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
@@ -699,6 +761,16 @@ function HomeInner() {
             <span className="text-sm">{uiError}</span>
             <button className="px-2 py-1 text-xs rounded-md border border-white/10 hover:bg-white/10" onClick={() => setUiError("")}>Dismiss</button>
           </div>
+        )}
+
+        {/* OpenRouter Key Credit */}
+        {apiKey && (
+          <section className="mb-4">
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span>OpenRouter Key Credit:</span>
+              <CompactBalanceDisplay apiKey={apiKey} />
+            </div>
+          </section>
         )}
 
         {/* Controls row */}
@@ -892,28 +964,76 @@ function HomeInner() {
               />
             </form>
             {/* Prompt options */}
-            <div className="mt-3 inline-flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={limitWordsEnabled}
-                  onChange={(e) => setLimitWordsEnabled(e.target.checked)}
-                />
-                Limit words
-              </label>
-              <div className="flex items-center gap-2">
-                <label className="text-sm opacity-80" htmlFor="limit-words-input">Max</label>
-                <input
-                  id="limit-words-input"
-                  type="number"
-                  min={10}
-                  step={10}
-                  className="px-2 py-1 rounded-md border border-white/10 bg-black/20 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
-                  value={limitWords}
-                  onChange={(e) => setLimitWords(parseInt(e.target.value || "0", 10))}
-                  disabled={!limitWordsEnabled}
-                />
-                <span className="text-sm opacity-80">words</span>
+            <div className="mt-3 space-y-3 rounded-lg border border-white/10 bg-black/20 p-3 w-fit max-w-full self-start">
+              {/* Word limit section */}
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={limitWordsEnabled}
+                    onChange={(e) => setLimitWordsEnabled(e.target.checked)}
+                  />
+                  <span>Limit words</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm opacity-80" htmlFor="limit-words-input">Max</label>
+                  <input
+                    id="limit-words-input"
+                    type="number"
+                    min={10}
+                    step={10}
+                    className="px-2 py-1 rounded-md border border-white/10 bg-black/20 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                    value={limitWords}
+                    onChange={(e) => setLimitWords(parseInt(e.target.value || "0", 10))}
+                    disabled={!limitWordsEnabled}
+                  />
+                  <span className="text-sm opacity-80">words</span>
+                </div>
+              </div>
+              
+              {/* AI Features section */}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm opacity-90">AI Features:</span>
+                <Tip text="Enable advanced reasoning mode for supported models.">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={reasoningEnabled}
+                      onChange={(e) => setReasoningEnabled(e.target.checked)}
+                    />
+                    <span className="opacity-80">Reasoning</span>
+                  </label>
+                </Tip>
+                
+                {reasoningEnabled && (
+                  <Tip text="Reasoning effort level - higher effort may produce more thorough analysis.">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm opacity-80" htmlFor="reasoning-effort-select">Effort</label>
+                      <select
+                        id="reasoning-effort-select"
+                        value={reasoningEffort}
+                        onChange={(e) => setReasoningEffort(e.target.value as 'low' | 'medium' | 'high')}
+                        className="px-2 py-1 rounded-md border border-white/10 bg-black/20 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  </Tip>
+                )}
+                
+                
+                <Tip text="Allow models to search the web for current information.">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={webSearchEnabled}
+                      onChange={(e) => setWebSearchEnabled(e.target.checked)}
+                    />
+                    <span className="opacity-80">Web Search</span>
+                  </label>
+                </Tip>
               </div>
             </div>
 
@@ -1006,6 +1126,7 @@ function HomeInner() {
                       <input type="text" placeholder="e.g. ###,END" value={stopStr} onChange={(e)=> setStopStr(e.target.value)} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
                     </label>
                   </Tip>
+                  
                 </div>
               )}
             {/* Actions toolbar */}
@@ -1087,10 +1208,19 @@ function HomeInner() {
 <VendorLogo modelId={id} size={18} className="shrink-0" />
                       <span className="truncate">{modelDisplayName(id, modelsById[id])}</span>
                     </h3>
-                    <div className="flex items-center gap-1">
-                      {panes[id]?.running && <span className="text-xs opacity-60">Streaming…</span>}
+                    <div className="flex items-center gap-2">
+                      {/* Performance Metrics or Streaming indicator */}
+                      {panes[id]?.running ? (
+                        <span className="text-xs opacity-60">Streaming…</span>
+                      ) : panes[id]?.metrics ? (
+                        <CompactPerformanceMetrics 
+                          metrics={panes[id]?.metrics || null}
+                          isStreaming={false}
+                          className="text-xs"
+                        />
+                      ) : null}
                       <button
-                        className="ml-2 p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
+                        className="p-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
                         aria-label="Maximize result"
                         onClick={() => setExpandedId(id)}
                       >
