@@ -1,28 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-// Reusable typed localStorage hook that avoids SSR/client hydration mismatches
+// Reusable typed localStorage hook with immediate client-side hydration.
 export default function useLocalStorage<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(initial);
-  const hydratedRef = useRef(false);
+  const isBrowser = typeof window !== "undefined";
 
-  // Load after mount
-  useEffect(() => {
+  // Read once, synchronously on first render (client-only)
+  const initialValue = useMemo<T>(() => {
+    if (!isBrowser) return initial;
     try {
       const raw = window.localStorage.getItem(key);
-      if (raw !== null) setValue(JSON.parse(raw) as T);
-    } catch {}
-    hydratedRef.current = true;
-  }, [key]);
+      return raw !== null ? (JSON.parse(raw) as T) : initial;
+    } catch {
+      return initial;
+    }
+  }, [isBrowser, key, initial]);
 
-  // Persist after hydration
+  const [value, setValue] = useState<T>(initialValue);
+
+  // Persist on change
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    if (!isBrowser) return;
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {}
-  }, [key, value]);
+  }, [isBrowser, key, value]);
 
   return [value, setValue] as const;
 }

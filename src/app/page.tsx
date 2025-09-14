@@ -435,6 +435,12 @@ function HomeInner() {
               ...p,
               [model]: { ...(p[model] || { draft: '' }), draft: (p[model]?.draft || '') + chunk, running: true },
             })),
+          onMetrics: (metrics) => {
+            setPanes((p) => ({
+              ...p,
+              [model]: { ...(p[model] || { draft: '', running: true }), metrics },
+            }));
+          },
           onDone: (full, usage, metrics) => {
             setPanes((p) => ({
               ...p,

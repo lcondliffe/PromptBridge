@@ -458,7 +458,7 @@ export function streamChatWithRetry(
     maxDelayMs = 8000
   } = retryConfig;
   
-  const { onToken, onDone, onError, onRetry } = callbacks;
+  const { onToken, onDone, onError, onRetry, onMetrics } = callbacks;
   
   let currentAttempt = 0;
   let accumulatedContent = '';
@@ -472,8 +472,8 @@ export function streamChatWithRetry(
         accumulatedContent += chunk;
         onToken?.(chunk);
       },
-      onDone: (full) => {
-        onDone?.(full || accumulatedContent);
+      onDone: (full, usage, metrics) => {
+        onDone?.(full || accumulatedContent, usage, metrics);
       },
       onError: async (error) => {
         // Check if this is a retryable error
@@ -512,6 +512,9 @@ export function streamChatWithRetry(
           // Either non-retryable or max attempts reached
           onError?.(error);
         }
+      },
+      onMetrics: (m) => {
+        onMetrics?.(m);
       }
     };
     
