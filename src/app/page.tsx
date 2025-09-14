@@ -425,7 +425,6 @@ function HomeInner() {
           traceId,
           // Enhanced features
           trackMetrics: true,
-          tools: toolsEnabled ? selectedTools : undefined,
           reasoning: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined,
           web_search: webSearchEnabled ? true : undefined,
           plugins: webSearchEnabled ? [{ id: 'web' }] : undefined,
@@ -705,7 +704,6 @@ function HomeInner() {
         traceId,
         // Enhanced features
         trackMetrics: true,
-        tools: toolsEnabled ? selectedTools : undefined,
         reasoning: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined,
         web_search: webSearchEnabled ? true : undefined,
         plugins: webSearchEnabled ? [{ id: 'web' }] : undefined,
@@ -1021,16 +1019,6 @@ function HomeInner() {
                   </Tip>
                 )}
                 
-                <Tip text="Enable function calling and tool use for supported models.">
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={toolsEnabled}
-                      onChange={(e) => setToolsEnabled(e.target.checked)}
-                    />
-                    <span className="opacity-80">Tools</span>
-                  </label>
-                </Tip>
                 
                 <Tip text="Allow models to search the web for current information.">
                   <label className="inline-flex items-center gap-2 text-sm">

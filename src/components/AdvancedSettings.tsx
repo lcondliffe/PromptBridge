@@ -160,73 +160,8 @@ export default function AdvancedSettings({
           )}
 
           {/* Function Calling / Tools */}
-          {supportsTools && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Wrench className="size-4 text-blue-400" />
-                  <span className="text-sm font-medium">Function Calling</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={toolsEnabled}
-                    onChange={(e) => onToolsChange(e.target.checked, selectedTools)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-                </label>
-              </div>
-              
-              {toolsEnabled && (
-                <div className="ml-6 space-y-3">
-                  <p className="text-xs text-gray-400">
-                    Enable the model to call functions and access external data
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">Available Tools:</span>
-                      <button
-                        onClick={() => setShowToolEditor(!showToolEditor)}
-                        className="text-xs text-blue-400 hover:text-blue-300 underline"
-                      >
-                        {showToolEditor ? 'Hide' : 'Customize'} Tools
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {BUILTIN_TOOLS.map((tool) => {
-                        const isSelected = selectedTools.some(t => t.function.name === tool.function.name);
-                        return (
-                          <label key={tool.function.name} className="flex items-center gap-2 text-xs cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => handleToolToggle(tool, e.target.checked)}
-                              className="size-3 rounded"
-                            />
-                            <span>{tool.function.name}</span>
-                            <span className="text-gray-500">- {tool.function.description}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    
-                    {showToolEditor && (
-                      <div className="bg-black/20 rounded p-3 border border-white/10">
-                        <p className="text-xs text-gray-400 mb-2">Custom tools coming soon...</p>
-                        <textarea
-                          placeholder="Define custom function schemas here"
-                          className="w-full h-20 bg-transparent border border-white/10 rounded p-2 text-xs resize-none"
-                          disabled
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+          {false && (
+            <div />
           )}
 
           {/* Web Search */}
@@ -266,12 +201,6 @@ export default function AdvancedSettings({
                 <span className="flex items-center gap-1 text-purple-400">
                   <Brain className="size-3" />
                   Reasoning
-                </span>
-              )}
-              {supportsTools && (
-                <span className="flex items-center gap-1 text-blue-400">
-                  <Wrench className="size-3" />
-                  Tools
                 </span>
               )}
               {supportsWebSearch && (
