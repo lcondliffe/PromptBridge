@@ -15,6 +15,14 @@
     "prisma:db:push": "prisma db push --schema packages/api/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --name init --schema packages/api/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema packages/api/prisma/schema.prisma",
+    "test": "vitest run",
+    "test:all": "pnpm run test:unit && pnpm run test:sdk && pnpm run test:integration",
+    "test:dev": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:sdk": "vitest run --config vitest.sdk.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --reporter=github"
   },
@@ -46,12 +54,19 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/supertest": "^6.0.2",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "dotenv": "^17.2.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
+    "happy-dom": "^18.0.1",
+    "msw": "^2.8.3",
     "prisma": "^5.22.0",
+    "supertest": "^7.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   },
   "pnpm": {
     "overrides": {
