@@ -316,8 +316,8 @@ jobs:
       - name: Parse E2E test results
         if: always()
         env:
-          TEST_STATUS: ${{ steps.e2e_tests.outcome == 'success' && '✅ Passed' || '❌ Failed' }}
-          AUTH_TYPE: ${{ env.E2E_CLERK_USER_USERNAME && 'Real User' || 'Fallback Credentials' }}
+          TEST_STATUS: "${{ steps.e2e_tests.outcome == 'success' && '✅ Passed' || '❌ Failed' }}"
+          AUTH_TYPE: "${{ env.E2E_CLERK_USER_USERNAME && 'Real User' || 'Fallback Credentials' }}"
         run: |
           echo "## 🎭 E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
