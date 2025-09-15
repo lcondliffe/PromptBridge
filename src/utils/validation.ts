@@ -28,7 +28,7 @@ export const schemas = {
   modelName: z.string().min(1, 'Model name is required').optional(),
   
   // Date validation
-  isoDateTime: z.string().datetime('Invalid ISO datetime format'),
+  isoDateTime: z.string().datetime({ message: 'Invalid ISO datetime format' }),
   
   // Pagination
   pagination: z.object({
