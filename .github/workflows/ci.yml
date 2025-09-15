@@ -315,6 +315,9 @@ jobs:
 
       - name: Parse E2E test results
         if: always()
+        env:
+          TEST_STATUS: ${{ steps.e2e_tests.outcome == 'success' && '✅ Passed' || '❌ Failed' }}
+          AUTH_TYPE: ${{ env.E2E_CLERK_USER_USERNAME && 'Real User' || 'Fallback Credentials' }}
         run: |
           echo "## 🎭 E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -363,15 +366,15 @@ jobs:
                 if (totalTests === 0) {
                   console.log('| Metric | Value |');
                   console.log('|--------|-------|');
-                  console.log('| Status | ${{ steps.e2e_tests.outcome == \'success\' && \'✅ Passed\' || \'❌ Failed\' }} |');
+                  console.log('| Status | ' + process.env.TEST_STATUS + ' |');
                   console.log('| Browser | Chromium (Headless) |');
                   console.log('| Environment | Ubuntu Latest + PostgreSQL 16 |');
                 } else {
                   console.log('| Metric | Value |');
                   console.log('|--------|-------|');
                   console.log('| Total Tests | ' + totalTests + ' |');
-                  console.log('| Passed | ' + passedTests + ' ✅ |');
-                  console.log('| Failed | ' + failedTests + ' ❌ |');
+                  console.log('| Passed | ' + passedTests + ' \u2705 |');
+                  console.log('| Failed | ' + failedTests + ' \u274c |');
                   console.log('| Success Rate | ' + Math.round((passedTests / totalTests) * 100) + '% |');
                   console.log('| Browser | Chromium (Headless) |');
                 }
@@ -379,7 +382,7 @@ jobs:
               } catch (e) {
                 console.log('| Metric | Value |');
                 console.log('|--------|-------|');
-                console.log('| Status | ${{ steps.e2e_tests.outcome == \'success\' && \'✅ Passed\' || \'❌ Failed\' }} |');
+                console.log('| Status | ' + process.env.TEST_STATUS + ' |');
                 console.log('| Browser | Chromium (Headless) |');
                 console.log('| Note | Detailed results parsing failed |');
               }
@@ -387,7 +390,7 @@ jobs:
           else
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Status | ${{ steps.e2e_tests.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | $TEST_STATUS |" >> $GITHUB_STEP_SUMMARY
             echo "| Browser | Chromium (Headless) |" >> $GITHUB_STEP_SUMMARY
             echo "| Environment | Ubuntu Latest + PostgreSQL 16 |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -399,7 +402,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Base URL**: http://localhost:3000" >> $GITHUB_STEP_SUMMARY
           echo "- **Database**: PostgreSQL 16 (Docker)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Authentication**: Clerk (${{ env.E2E_CLERK_USER_USERNAME && 'Real User' || 'Fallback Credentials' }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Authentication**: Clerk ($AUTH_TYPE)" >> $GITHUB_STEP_SUMMARY
           echo "- **Timeout**: 60s per test, 10s per assertion" >> $GITHUB_STEP_SUMMARY
           echo "- **Retries**: 2 (CI only)" >> $GITHUB_STEP_SUMMARY
           echo "- **Video**: Captured on failure" >> $GITHUB_STEP_SUMMARY
