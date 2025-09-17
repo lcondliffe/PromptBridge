@@ -4,9 +4,9 @@
 export class ApiError extends Error {
   public readonly name = 'ApiError';
   public readonly status: number;
-  public readonly body?: any;
+  public readonly body?: unknown;
 
-  constructor(message: string, status: number, body?: any) {
+  constructor(message: string, status: number, body?: unknown) {
     super(message);
     this.status = status;
     this.body = body;
@@ -40,7 +40,7 @@ export class ApiError extends Error {
  * @returns Promise that resolves to an ApiError
  */
 export async function createApiError(response: Response): Promise<ApiError> {
-  let body: any;
+  let body: unknown;
   
   try {
     body = await response.text();
@@ -59,7 +59,7 @@ export async function createApiError(response: Response): Promise<ApiError> {
  * @param error - The error to handle (can be any type)
  * @returns A normalized Error instance
  */
-export function handleApiError(error: any): Error {
+export function handleApiError(error: unknown): Error {
   // If it's already an Error instance (including ApiError), return as-is
   if (error instanceof Error) {
     return error;
@@ -102,7 +102,7 @@ export function handleApiError(error: any): Error {
  * @param error - The error to check
  * @returns True if the error is an ApiError
  */
-export function isApiError(error: any): error is ApiError {
+export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError;
 }
 
@@ -111,7 +111,7 @@ export function isApiError(error: any): error is ApiError {
  * @param error - The error to extract message from
  * @returns The error message string
  */
-export function getErrorMessage(error: any): string {
+export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
@@ -132,10 +132,10 @@ export function getErrorMessage(error: any): string {
  * @param error - The error to convert
  * @returns Standardized error object
  */
-export function createErrorResponse(error: any): {
+export function createErrorResponse(error: unknown): {
   error: string;
   status?: number;
-  details?: any;
+  details?: unknown;
 } {
   if (isApiError(error)) {
     return {

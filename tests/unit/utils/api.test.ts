@@ -46,7 +46,7 @@ describe('API Utilities', () => {
     });
 
     it('should handle circular references in body', () => {
-      const circularObj: any = { prop: 'value' };
+      const circularObj: { prop: string; circular?: unknown } = { prop: 'value' };
       circularObj.circular = circularObj;
 
       expect(() => {
@@ -104,7 +104,7 @@ describe('API Utilities', () => {
       const mockResponse = {
         status: 503,
         statusText: 'Service Unavailable',
-        text: () => Promise.resolve(null as any),
+        text: () => Promise.resolve(null as unknown),
       } as Response;
 
       const error = await createApiError(mockResponse);
@@ -232,7 +232,7 @@ describe('API Utilities', () => {
     });
 
     it('should handle circular reference objects', () => {
-      const circularObj: any = { prop: 'value' };
+      const circularObj: { prop: string; circular?: unknown } = { prop: 'value' };
       circularObj.circular = circularObj;
 
       expect(() => {
@@ -318,7 +318,7 @@ describe('API Utilities', () => {
 
     it('should handle ApiError inheritance correctly', () => {
       class CustomApiError extends ApiError {
-        constructor(message: string, status: number, body?: any, public customProp?: string) {
+        constructor(message: string, status: number, body?: unknown, public customProp?: string) {
           super(message, status, body);
         }
       }

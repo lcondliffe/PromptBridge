@@ -2,7 +2,7 @@ import { beforeEach, afterEach, vi } from 'vitest';
 import 'dotenv/config';
 
 // Store original window object
-let originalWindow: any;
+let originalWindow: unknown;
 
 beforeEach(() => {
   // Store original window state

@@ -17,7 +17,15 @@ import { listMessages, createMessage } from '../../../packages/api/src/repositor
 import { prisma } from '../../../packages/api/src/db';
 
 // Get the mocked prisma for type assertion
-const mockPrisma = prisma as any;
+const mockPrisma = prisma as {
+  conversation: {
+    findUnique: Mock;
+  };
+  message: {
+    findMany: Mock;
+    create: Mock;
+  };
+};
 
 describe('messageRepo', () => {
   beforeEach(() => {

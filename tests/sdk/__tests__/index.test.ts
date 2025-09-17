@@ -504,7 +504,7 @@ describe('SDK', () => {
       it('should handle validation errors for invalid message input', async () => {
         const conversationId = TestData.conversation.id();
         const invalidInput = {
-          role: 'invalid' as any,
+          role: 'invalid' as 'user',
           content: '',
         };
 
@@ -560,10 +560,13 @@ describe('SDK', () => {
       try {
         await sdk.health();
         expect.fail('Expected an error to be thrown');
-      } catch (error: any) {
-        expect(error.name).toBe('ApiError');
-        expect(error.status).toBe(422);
-        expect(error.message).toBe(errorBody);
+      } catch (error: unknown) {
+        expect(error).toBeInstanceOf(Error);
+        if (error instanceof Error) {
+          expect(error.name).toBe('ApiError');
+          expect((error as { status?: number }).status).toBe(422);
+          expect(error.message).toBe(errorBody);
+        }
       }
     });
 
@@ -581,9 +584,12 @@ describe('SDK', () => {
         try {
           await sdk.health();
           expect.fail(`Expected error for status code ${statusCode}`);
-        } catch (error: any) {
-          expect(error.status).toBe(statusCode);
-          expect(error.message).toBe(`Error ${statusCode}`);
+        } catch (error: unknown) {
+          expect(error).toBeInstanceOf(Error);
+          if (error instanceof Error) {
+            expect((error as { status?: number }).status).toBe(statusCode);
+            expect(error.message).toBe(`Error ${statusCode}`);
+          }
         }
 
         mockFetch.mockClear();

@@ -23,7 +23,7 @@ function createTestServer() {
       res.statusCode = response.status;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(body));
-    } catch (error) {
+    } catch {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Internal Server Error' }));
@@ -270,7 +270,7 @@ describe('/api/status', () => {
 
   it('should handle string-like numbers', async () => {
     // This tests if the database somehow returns a string
-    mockCountUsers.mockResolvedValue('5' as any);
+    mockCountUsers.mockResolvedValue('5' as unknown);
     
     const server = createTestServer();
     

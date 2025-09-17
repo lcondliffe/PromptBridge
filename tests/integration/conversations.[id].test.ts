@@ -30,7 +30,7 @@ function createTestServer(conversationId: string = 'test_conv_id') {
       
       let response;
       if (req.method === 'DELETE') {
-        response = await DELETE(req as any, ctx);
+        response = await DELETE(req as NextRequest, ctx);
       } else {
         res.statusCode = 405;
         res.setHeader('Content-Type', 'application/json');
@@ -43,7 +43,7 @@ function createTestServer(conversationId: string = 'test_conv_id') {
       res.statusCode = response.status;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(responseBody));
-    } catch (error) {
+    } catch {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Internal Server Error' }));
@@ -199,7 +199,6 @@ describe('/api/conversations/[id]', () => {
 
     it('should handle URL-encoded conversation IDs', async () => {
       const testUserId = TestData.user.clerkId();
-      const originalId = 'conv with spaces';
       const encodedId = 'conv%20with%20spaces';
       const deletedConversation = {
         id: encodedId, // The ID as received by the handler

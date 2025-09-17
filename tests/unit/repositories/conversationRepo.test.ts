@@ -16,7 +16,14 @@ import { listConversationsByUserId, createConversationForUser, deleteConversatio
 import { prisma } from '../../../packages/api/src/db';
 
 // Get the mocked prisma for type assertion
-const mockPrisma = prisma as any;
+const mockPrisma = prisma as {
+  conversation: {
+    findMany: Mock;
+    create: Mock;
+    findUnique: Mock;
+    delete: Mock;
+  };
+};
 
 describe('conversationRepo', () => {
   beforeEach(() => {

@@ -10,7 +10,8 @@ function createTestServer() {
     try {
       // Create a NextRequest-like object for our handler
       const url = new URL(req.url || '/', 'http://localhost:3000');
-      const nextRequest = new NextRequest(url, {
+      // NextRequest created for potential future use
+      new NextRequest(url, {
         method: req.method,
         headers: Object.fromEntries(
           Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value || ''])
@@ -23,7 +24,7 @@ function createTestServer() {
       res.statusCode = response.status;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(body));
-    } catch (error) {
+    } catch {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Internal Server Error' }));
