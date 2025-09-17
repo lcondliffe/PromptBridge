@@ -1,0 +1,1 @@
+tests/config/vitest.integration.config.ts
