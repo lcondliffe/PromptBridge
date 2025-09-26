@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import { createServer } from 'http';
 import { NextRequest } from 'next/server';
 import { GET, POST } from '../../src/app/api/conversations/route';
-import { TestData } from "../utils/factories";
+import { TestData } from '../utils/factories';
+import { createTestServer } from '../utils/integration-setup';
 
 const { mockListConversationsByUserId, mockCreateConversationForUser, mockSyncClerkUser } = vi.hoisted(() => {
   return {
@@ -31,54 +31,19 @@ vi.mock('@clerk/nextjs/server', () => ({
   currentUser: mockCurrentUser,
 }));
 
-// Create a test server that wraps our Next.js route handlers
-function createTestServer() {
-  return createServer(async (req, res) => {
-    try {
-      const url = new URL(req.url || '/', 'http://localhost:3000');
-      // NextRequest created for potential future use
-      new NextRequest(url, {
-        method: req.method,
-        headers: Object.fromEntries(
-          Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value || ''])
-        ),
-      });
-
-      let response;
-      if (req.method === 'GET') {
-        response = await GET();
-      } else if (req.method === 'POST') {
-        // Read body for POST requests
-        let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
-        await new Promise(resolve => req.on('end', resolve));
-        
-        // Create a new request with body
-        const requestWithBody = new NextRequest(url, {
-          method: 'POST',
-          headers: Object.fromEntries(
-            Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value || ''])
-          ),
-          body,
-        });
-        
-        response = await POST(requestWithBody);
-      } else {
-        throw new Error('Method not allowed');
-      }
-      
-      const responseBody = await response.json();
-      
-      res.statusCode = response.status;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(responseBody));
-    } catch {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Internal Server Error' }));
-    }
+// Create a request handler for the GET and POST methods
+const handler = async (req: NextRequest) => {
+  if (req.method === 'GET') {
+    return GET();
+  } else if (req.method === 'POST') {
+    return POST(req);
+  }
+  // Return a 405 Method Not Allowed response for other methods
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: { 'Content-Type': 'application/json' },
   });
-}
+};
 
 describe('/api/conversations', () => {
   beforeEach(() => {
@@ -112,7 +77,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockListConversationsByUserId.mockResolvedValue(testConversations);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .get('/')
@@ -132,7 +97,7 @@ describe('/api/conversations', () => {
       mockAuth.mockResolvedValue({ userId: null });
       mockCurrentUser.mockResolvedValue(null);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .get('/')
@@ -155,7 +120,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockListConversationsByUserId.mockResolvedValue([]);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .get('/')
@@ -175,7 +140,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: '' });
       mockListConversationsByUserId.mockResolvedValue([]);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .get('/')
@@ -197,7 +162,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockListConversationsByUserId.mockRejectedValue(new Error('Database error'));
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       await request(server)
         .get('/')
@@ -215,7 +180,7 @@ describe('/api/conversations', () => {
       mockCurrentUser.mockResolvedValue(mockUser);
       mockSyncClerkUser.mockRejectedValue(new Error('User sync failed'));
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       await request(server)
         .get('/')
@@ -244,7 +209,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockCreateConversationForUser.mockResolvedValue(newConversation);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .post('/')
@@ -265,7 +230,7 @@ describe('/api/conversations', () => {
       mockAuth.mockResolvedValue({ userId: null });
       mockCurrentUser.mockResolvedValue(null);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .post('/')
@@ -287,7 +252,7 @@ describe('/api/conversations', () => {
       mockCurrentUser.mockResolvedValue(mockUser);
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       // Test empty title
       const response1 = await request(server)
@@ -327,7 +292,7 @@ describe('/api/conversations', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockCurrentUser.mockResolvedValue(mockUser);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .post('/')
@@ -358,7 +323,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockCreateConversationForUser.mockResolvedValue(newConversation);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .post('/')
@@ -389,7 +354,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockCreateConversationForUser.mockResolvedValue(newConversation);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .post('/')
@@ -412,7 +377,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockCreateConversationForUser.mockRejectedValue(new Error('Database creation failed'));
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       await request(server)
         .post('/')
@@ -448,7 +413,7 @@ describe('/api/conversations', () => {
           updatedAt: new Date(),
         });
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       // Make concurrent POST requests
       const responses = await Promise.all([
@@ -485,7 +450,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockCreateConversationForUser.mockResolvedValue(newConversation);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .post('/')
@@ -506,7 +471,7 @@ describe('/api/conversations', () => {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 100))
       );
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       await request(server)
         .get('/')
@@ -522,7 +487,7 @@ describe('/api/conversations', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockCurrentUser.mockResolvedValue(mockUser);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       await request(server)
         .get('/')
@@ -550,7 +515,7 @@ describe('/api/conversations', () => {
       mockSyncClerkUser.mockResolvedValue({ id: testUserId, email: testEmail });
       mockListConversationsByUserId.mockResolvedValue(largeConversationList);
 
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .get('/')

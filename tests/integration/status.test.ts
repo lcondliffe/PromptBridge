@@ -1,35 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import { createServer } from 'http';
+import { NextRequest } from 'next/server';
+import { GET } from '../../src/app/api/status/route';
+import { countUsers } from '@promptbridge/api';
+import { createTestServer } from '../utils/integration-setup';
 
 // Mock the countUsers function from the API package (must be at top level)
 vi.mock('@promptbridge/api', () => ({
   countUsers: vi.fn(),
 }));
 
-import { GET } from '../../src/app/api/status/route';
-import { countUsers } from '@promptbridge/api';
-
 // Get reference to the mocked function
 const mockCountUsers = vi.mocked(countUsers);
 
-// Create a test server that wraps our Next.js route handler
-function createTestServer() {
-  return createServer(async (req, res) => {
-    try {
-      const response = await GET();
-      const body = await response.json();
-      
-      res.statusCode = response.status;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(body));
-    } catch {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Internal Server Error' }));
-    }
+// Create a request handler for the GET method
+const handler = async (req: NextRequest) => {
+  if (req.method === 'GET') {
+    return GET();
+  }
+  // Return a 405 Method Not Allowed response for other methods
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: { 'Content-Type': 'application/json' },
   });
-}
+};
 
 describe('/api/status', () => {
   beforeEach(() => {
@@ -39,7 +33,7 @@ describe('/api/status', () => {
   it('should return hasUsers: true when users exist', async () => {
     mockCountUsers.mockResolvedValue(5); // 5 users exist
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -58,7 +52,7 @@ describe('/api/status', () => {
   it('should return hasUsers: false when no users exist', async () => {
     mockCountUsers.mockResolvedValue(0); // No users
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -77,7 +71,7 @@ describe('/api/status', () => {
   it('should return hasUsers: true for count of 1', async () => {
     mockCountUsers.mockResolvedValue(1); // Exactly 1 user
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -93,7 +87,7 @@ describe('/api/status', () => {
   it('should handle large user counts', async () => {
     mockCountUsers.mockResolvedValue(999999); // Very large count
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -110,7 +104,7 @@ describe('/api/status', () => {
     const dbError = new Error('Database connection failed');
     mockCountUsers.mockRejectedValue(dbError);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     // The error should bubble up and cause a 500 response
     await request(server)
@@ -125,7 +119,7 @@ describe('/api/status', () => {
   it('should handle countUsers returning null/undefined', async () => {
     mockCountUsers.mockResolvedValue(null);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -142,7 +136,7 @@ describe('/api/status', () => {
   it('should handle countUsers returning NaN', async () => {
     mockCountUsers.mockResolvedValue(NaN);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -159,7 +153,7 @@ describe('/api/status', () => {
   it('should handle negative user counts', async () => {
     mockCountUsers.mockResolvedValue(-5); // Negative count (shouldn't happen in reality)
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -176,7 +170,7 @@ describe('/api/status', () => {
   it('should maintain consistent response schema', async () => {
     mockCountUsers.mockResolvedValue(42);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -192,7 +186,7 @@ describe('/api/status', () => {
   it('should handle concurrent requests correctly', async () => {
     mockCountUsers.mockResolvedValue(10);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     // Make multiple concurrent requests
     const requests = Array.from({ length: 5 }, () => request(server).get('/'));
@@ -213,7 +207,7 @@ describe('/api/status', () => {
   it('should call countUsers exactly once per request', async () => {
     mockCountUsers.mockResolvedValue(3);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     await request(server).get('/').expect(200);
     
@@ -229,7 +223,7 @@ describe('/api/status', () => {
       new Promise(resolve => setTimeout(() => resolve(2), 100))
     );
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const startTime = Date.now();
     const response = await request(server)
@@ -256,7 +250,7 @@ describe('/api/status', () => {
     for (const { count, expected } of testCases) {
       mockCountUsers.mockResolvedValue(count);
       
-      const server = createTestServer();
+      const { server } = createTestServer(handler);
       
       const response = await request(server)
         .get('/')
@@ -272,7 +266,7 @@ describe('/api/status', () => {
     // This tests if the database somehow returns a string
     mockCountUsers.mockResolvedValue('5' as unknown);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -288,7 +282,7 @@ describe('/api/status', () => {
     // This endpoint should be public, so test without any auth headers
     mockCountUsers.mockResolvedValue(1);
     
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')

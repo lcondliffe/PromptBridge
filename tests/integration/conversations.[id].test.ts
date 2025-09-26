@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import { createServer } from 'http';
 import { NextRequest } from 'next/server';
 import { DELETE } from '../../src/app/api/conversations/[id]/route';
-import { TestData } from "../utils/factories";
+import { TestData } from '../utils/factories';
+import { createTestServer } from '../utils/integration-setup';
 
 const { mockDeleteConversation } = vi.hoisted(() => {
   return {
@@ -25,37 +25,18 @@ vi.mock('@clerk/nextjs/server', () => ({
   auth: mockAuth,
 }));
 
-// Create a test server that wraps our Next.js route handler
-function createTestServer(conversationId: string = 'test_conv_id') {
-  return createServer(async (req, res) => {
-    try {
-      // Mock the context parameter that Next.js provides
-      const ctx = {
-        params: Promise.resolve({ id: conversationId }),
-      };
-      
-      let response;
-      if (req.method === 'DELETE') {
-        response = await DELETE(req as NextRequest, ctx);
-      } else {
-        res.statusCode = 405;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: 'Method Not Allowed' }));
-        return;
-      }
-      
-      const responseBody = await response.json();
-      
-      res.statusCode = response.status;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(responseBody));
-    } catch {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Internal Server Error' }));
-    }
+// Create a request handler for the DELETE method
+const handler = async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  if (req.method === 'DELETE') {
+    return DELETE(req, context);
+  }
+  // Return a 405 Method Not Allowed response for other methods
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: { 'Content-Type': 'application/json' },
   });
-}
+};
+
 
 describe('/api/conversations/[id]', () => {
   beforeEach(() => {
@@ -77,7 +58,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockResolvedValue(deletedConversation);
 
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
       
       const response = await request(server)
         .delete('/')
@@ -96,7 +77,7 @@ describe('/api/conversations/[id]', () => {
 
       mockAuth.mockResolvedValue({ userId: null });
 
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
       
       const response = await request(server)
         .delete('/')
@@ -115,7 +96,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockRejectedValue(new Error('Conversation not found'));
 
-      const server = createTestServer(nonexistentConversationId);
+      const { server } = createTestServer(handler, nonexistentConversationId);
       
       const response = await request(server)
         .delete('/')
@@ -134,7 +115,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockRejectedValue(new Error('Conversation not found')); // Repository throws this for ownership violations
 
-      const server = createTestServer(otherUserConversationId);
+      const { server } = createTestServer(handler, otherUserConversationId);
       
       const response = await request(server)
         .delete('/')
@@ -170,7 +151,7 @@ describe('/api/conversations/[id]', () => {
         mockAuth.mockResolvedValue({ userId: testUserId });
         mockDeleteConversation.mockResolvedValue(deletedConversation);
 
-        const server = createTestServer(conversationId);
+        const { server } = createTestServer(handler, conversationId);
         
         const response = await request(server)
           .delete('/')
@@ -191,7 +172,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockRejectedValue(new Error('Conversation not found'));
 
-      const server = createTestServer(emptyId);
+      const { server } = createTestServer(handler, emptyId);
       
       const response = await request(server)
         .delete('/')
@@ -217,7 +198,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockResolvedValue(deletedConversation);
 
-      const server = createTestServer(encodedId);
+      const { server } = createTestServer(handler, encodedId);
       
       const response = await request(server)
         .delete('/')
@@ -236,7 +217,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockRejectedValue(new Error('Foreign key constraint violation'));
 
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
       
       const response = await request(server)
         .delete('/')
@@ -264,8 +245,8 @@ describe('/api/conversations/[id]', () => {
         .mockResolvedValueOnce(deletedConversation)
         .mockRejectedValueOnce(new Error('Conversation not found'));
 
-      const server1 = createTestServer(testConversationId);
-      const server2 = createTestServer(testConversationId);
+      const { server: server1 } = createTestServer(handler, testConversationId);
+      const { server: server2 } = createTestServer(handler, testConversationId);
       
       // Make concurrent DELETE requests
       const [response1, response2] = await Promise.all([
@@ -293,7 +274,7 @@ describe('/api/conversations/[id]', () => {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 100))
       );
 
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
       
       await request(server)
         .delete('/')
@@ -309,7 +290,7 @@ describe('/api/conversations/[id]', () => {
 
       mockAuth.mockResolvedValue({ userId: null }); // Malformed auth response
 
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
       
       const response = await request(server)
         .delete('/')
@@ -328,7 +309,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockRejectedValue(new Error('Conversation not found'));
 
-      const server = createTestServer(veryLongId);
+      const { server } = createTestServer(handler, veryLongId);
       
       const response = await request(server)
         .delete('/')
@@ -354,7 +335,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockResolvedValue(deletedConversation);
 
-      const server = createTestServer(specialCharId);
+      const { server } = createTestServer(handler, specialCharId);
       
       const response = await request(server)
         .delete('/')
@@ -380,7 +361,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockResolvedValue(deletedConversation);
 
-      const server = createTestServer(unicodeId);
+      const { server } = createTestServer(handler, unicodeId);
       
       const response = await request(server)
         .delete('/')
@@ -394,7 +375,7 @@ describe('/api/conversations/[id]', () => {
 
     it('should only allow DELETE method', async () => {
       const testConversationId = TestData.conversation.id();
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
 
       // Test other HTTP methods
       await request(server).get('/').expect(405);
@@ -428,7 +409,7 @@ describe('/api/conversations/[id]', () => {
 
       // Delete conversations sequentially
       for (const conversationId of testConversationIds) {
-        const server = createTestServer(conversationId);
+        const { server } = createTestServer(handler, conversationId);
         
         const response = await request(server)
           .delete('/')
@@ -450,7 +431,7 @@ describe('/api/conversations/[id]', () => {
       // Test unauthorized error
       mockAuth.mockResolvedValue({ userId: null });
 
-      const server1 = createTestServer(testConversationId);
+      const { server: server1 } = createTestServer(handler, testConversationId);
       
       const response1 = await request(server1)
         .delete('/')
@@ -467,7 +448,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockRejectedValue(new Error('Not found'));
 
-      const server2 = createTestServer(testConversationId);
+      const { server: server2 } = createTestServer(handler, testConversationId);
       
       const response2 = await request(server2)
         .delete('/')
@@ -494,7 +475,7 @@ describe('/api/conversations/[id]', () => {
       mockAuth.mockResolvedValue({ userId: testUserId });
       mockDeleteConversation.mockResolvedValue(deletedConversation);
 
-      const server = createTestServer(testConversationId);
+      const { server } = createTestServer(handler, testConversationId);
       
       const response = await request(server)
         .delete('/')

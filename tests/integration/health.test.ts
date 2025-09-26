@@ -1,40 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { createServer } from 'http';
 import { NextRequest } from 'next/server';
 import { GET } from '../../src/app/api/health/route';
+import { createTestServer } from '../utils/integration-setup';
 
-// Create a test server that wraps our Next.js route handler
-function createTestServer() {
-  return createServer(async (req, res) => {
-    try {
-      // Create a NextRequest-like object for our handler
-      const url = new URL(req.url || '/', 'http://localhost:3000');
-      // NextRequest created for potential future use
-      new NextRequest(url, {
-        method: req.method,
-        headers: Object.fromEntries(
-          Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value || ''])
-        ),
-      });
-
-      const response = await GET();
-      const body = await response.json();
-      
-      res.statusCode = response.status;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(body));
-    } catch {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Internal Server Error' }));
-    }
+// Create a request handler for the GET method
+const handler = async (req: NextRequest) => {
+  if (req.method === 'GET') {
+    return GET();
+  }
+  // Return a 405 Method Not Allowed response for other methods
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: { 'Content-Type': 'application/json' },
   });
-}
+};
 
 describe('/api/health', () => {
   it('should return 200 with ok: true and timestamp', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -60,7 +44,7 @@ describe('/api/health', () => {
   });
 
   it('should return valid JSON response', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -73,7 +57,7 @@ describe('/api/health', () => {
   });
 
   it('should have correct response headers', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     await request(server)
       .get('/')
@@ -84,7 +68,7 @@ describe('/api/health', () => {
   });
 
   it('should be consistent across multiple calls', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const responses = await Promise.all([
       request(server).get('/'),
@@ -113,7 +97,7 @@ describe('/api/health', () => {
   });
 
   it('should handle high concurrency', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     // Make many concurrent requests
     const concurrentRequests = Array.from({ length: 20 }, () => 
@@ -135,7 +119,7 @@ describe('/api/health', () => {
   });
 
   it('should work with different HTTP methods (even though only GET is implemented)', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     // GET should work
     await request(server)
@@ -146,13 +130,13 @@ describe('/api/health', () => {
     // but the server wrapper will still call GET
     await request(server)
       .post('/')
-      .expect(200); // Our wrapper always calls GET
+      .expect(405); // Our wrapper always calls GET
     
     server.close();
   });
 
   it('should maintain response schema', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const response = await request(server)
       .get('/')
@@ -168,7 +152,7 @@ describe('/api/health', () => {
   });
 
   it('should handle rapid sequential requests', async () => {
-    const server = createTestServer();
+    const { server } = createTestServer(handler);
     
     const responses = [];
     for (let i = 0; i < 10; i++) {
