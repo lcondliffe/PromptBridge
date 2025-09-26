@@ -5,15 +5,21 @@ import { NextRequest } from 'next/server';
 import { DELETE } from '../../src/app/api/conversations/[id]/route';
 import { TestData } from "../utils/factories";
 
-// Mock the API functions
-const mockDeleteConversation = vi.fn();
+const { mockDeleteConversation } = vi.hoisted(() => {
+  return {
+    mockDeleteConversation: vi.fn(),
+  };
+});
 
 vi.mock('@promptbridge/api', () => ({
   deleteConversation: mockDeleteConversation,
 }));
 
-// Mock Clerk authentication
-const mockAuth = vi.fn();
+const { mockAuth } = vi.hoisted(() => {
+  return {
+    mockAuth: vi.fn(),
+  };
+});
 
 vi.mock('@clerk/nextjs/server', () => ({
   auth: mockAuth,

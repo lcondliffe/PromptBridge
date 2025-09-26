@@ -5,10 +5,13 @@ import { NextRequest } from 'next/server';
 import { GET, POST } from '../../src/app/api/conversations/route';
 import { TestData } from "../utils/factories";
 
-// Mock the API functions
-const mockListConversationsByUserId = vi.fn();
-const mockCreateConversationForUser = vi.fn();
-const mockSyncClerkUser = vi.fn();
+const { mockListConversationsByUserId, mockCreateConversationForUser, mockSyncClerkUser } = vi.hoisted(() => {
+  return {
+    mockListConversationsByUserId: vi.fn(),
+    mockCreateConversationForUser: vi.fn(),
+    mockSyncClerkUser: vi.fn(),
+  };
+});
 
 vi.mock('@promptbridge/api', () => ({
   listConversationsByUserId: mockListConversationsByUserId,
@@ -16,9 +19,12 @@ vi.mock('@promptbridge/api', () => ({
   syncClerkUser: mockSyncClerkUser,
 }));
 
-// Mock Clerk authentication
-const mockAuth = vi.fn();
-const mockCurrentUser = vi.fn();
+const { mockAuth, mockCurrentUser } = vi.hoisted(() => {
+  return {
+    mockAuth: vi.fn(),
+    mockCurrentUser: vi.fn(),
+  };
+});
 
 vi.mock('@clerk/nextjs/server', () => ({
   auth: mockAuth,
