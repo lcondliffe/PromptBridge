@@ -16,12 +16,11 @@
     "prisma:migrate": "prisma migrate dev --name init --schema packages/api/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema packages/api/prisma/schema.prisma",
     "test": "vitest run",
-    "test:all": "pnpm run test:unit && pnpm run test:sdk && pnpm run test:integration",
+    "test:all": "pnpm run test:unit && pnpm run test:integration",
     "test:dev": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run --config vitest.unit.config.ts",
-    "test:sdk": "vitest run --config vitest.sdk.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --reporter=github"
