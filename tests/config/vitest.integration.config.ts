@@ -11,6 +11,6 @@ export default defineConfig({
     ],
     testTimeout: 30_000, // Integration tests may take longer
     hookTimeout: 30_000,
-    setupFiles: ['./tests/utils/setup.ts', './tests/utils/integration-setup.ts'],
+    setupFiles: ['./tests/utils/setup.ts'],
   },
 });
