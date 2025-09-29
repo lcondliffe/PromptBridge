@@ -254,7 +254,7 @@ describe('API Utilities', () => {
       const apiError = await createApiError(mockResponse);
       
       // Handle the error
-      const handledError = handleApiError(apiError);
+      const handledError = handleApiError(apiError) as ApiError;
 
       expect(handledError).toBeInstanceOf(ApiError);
       expect(handledError.status).toBe(422);
@@ -282,7 +282,7 @@ describe('API Utilities', () => {
       } as Response;
 
       const apiError = await createApiError(mockResponse);
-      const handledError = handleApiError(apiError);
+      const handledError = handleApiError(apiError) as ApiError;
 
       expect(handledError.status).toBe(500);
       expect(handledError.body).toBeUndefined();

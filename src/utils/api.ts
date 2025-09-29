@@ -49,7 +49,7 @@ export async function createApiError(response: Response): Promise<ApiError> {
     body = undefined;
   }
 
-  const message = body || `Request failed: ${response.status}`;
+  const message = (typeof body === 'string' && body) || `Request failed: ${response.status}`;
   
   return new ApiError(message, response.status, body);
 }
@@ -76,7 +76,7 @@ export function handleApiError(error: unknown): Error {
   }
 
   // Handle objects with message property
-  if (typeof error === 'object' && error.message) {
+  if (typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
     return new Error(error.message);
   }
 
@@ -120,7 +120,7 @@ export function getErrorMessage(error: unknown): string {
     return error;
   }
 
-  if (error && typeof error === 'object' && error.message) {
+  if (error && typeof error === 'object' && 'message' in error) {
     return String(error.message);
   }
 

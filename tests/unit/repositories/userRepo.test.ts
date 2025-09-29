@@ -16,7 +16,7 @@ import { getUserByClerkId, syncClerkUser, countUsers } from '../../../packages/a
 import { prisma } from '../../../packages/api/src/db';
 
 // Get the mocked prisma for type assertion
-const mockPrisma = prisma as {
+const mockPrisma = prisma as unknown as {
   user: {
     findUnique: Mock;
     create: Mock;

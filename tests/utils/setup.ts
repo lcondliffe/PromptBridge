@@ -1,4 +1,4 @@
-import { beforeAll, afterEach } from 'vitest';
+import { beforeAll, afterEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import 'dotenv/config';
 
@@ -23,8 +23,10 @@ afterEach(() => {
 // Global test environment setup
 beforeAll(() => {
   // Set up test environment variables
-  process.env.NODE_ENV = 'test';
-  process.env.DATABASE_URL = 'file:./test.db';
+  // Note: NODE_ENV is typically set by the test runner, but we ensure DATABASE_URL is set
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = 'file:./test.db';
+  }
   
   // Mock console methods to reduce noise in tests unless debugging
   if (!process.env.DEBUG_TESTS) {
