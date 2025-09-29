@@ -176,6 +176,19 @@ export function streamChat(
           });
         }
         
+        // Extra debug for reasoning
+        if (reasoning?.enabled !== undefined || include_reasoning !== undefined) {
+          console.log('🧠 OpenRouter Request with reasoning:', {
+            model,
+            reasoning,
+            include_reasoning,
+            bodyIncludesReasoning: 'reasoning' in body,
+            bodyIncludesIncludeReasoning: 'include_reasoning' in body,
+            bodyReasoningValue: body.reasoning,
+            bodyIncludeReasoningValue: body.include_reasoning
+          });
+        }
+        
         log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions`, hasAuth });
       }
 
@@ -291,9 +304,67 @@ export function streamChat(
                   throw new Error(`OpenRouter API error: ${errorMsg}`);
                 }
                 
+                // Debug: Log payload structure for reasoning analysis
+                if (debug) {
+                  // Log full payload structure for first few chunks to understand format
+                  const chunkIndex = tokenCount;
+                  if (chunkIndex < 5) {
+                    log('info', 'chat', 'payload_structure', {
+                      traceId,
+                      chunkIndex,
+                      fullPayload: JSON.stringify(payload, null, 2).slice(0, 1000),
+                      payloadKeys: Object.keys(payload || {}),
+                      choicesLength: Array.isArray(payload?.choices) ? payload.choices.length : 0,
+                      choiceKeys: payload?.choices?.[0] ? Object.keys(payload.choices[0]) : []
+                    });
+                  }
+                  
+                  if (payload?.choices?.[0]) {
+                    const choice = payload.choices[0];
+                    if (choice.delta || choice.message) {
+                      const hasReasoning = choice.delta?.reasoning || choice.message?.reasoning;
+                      const hasThinking = choice.delta?.thinking || choice.message?.thinking;
+                      if (hasReasoning || hasThinking) {
+                        log('info', 'chat', 'reasoning_detected', {
+                          traceId,
+                          hasReasoning: !!hasReasoning,
+                          hasThinking: !!hasThinking,
+                          reasoningKeys: hasReasoning ? Object.keys(hasReasoning) : [],
+                          thinkingKeys: hasThinking ? Object.keys(hasThinking) : [],
+                        });
+                      }
+                    }
+                  }
+                }
+                
                 // Try OpenAI-style delta
                 const delta = payload?.choices?.[0]?.delta ?? payload?.choices?.[0]?.message ?? payload?.message ?? null;
                 const contentChunk = delta?.content ?? payload?.choices?.[0]?.text ?? '';
+                
+                // Check for reasoning content in the response
+                const reasoningChunk = delta?.reasoning ?? payload?.choices?.[0]?.reasoning ?? '';
+                const thinkingChunk = delta?.thinking ?? payload?.choices?.[0]?.thinking ?? '';
+                
+                if (debug && (reasoningChunk || thinkingChunk)) {
+                  log('info', 'chat', 'reasoning_content', {
+                    traceId,
+                    reasoningLength: reasoningChunk ? reasoningChunk.length : 0,
+                    thinkingLength: thinkingChunk ? thinkingChunk.length : 0,
+                    contentLength: contentChunk ? contentChunk.length : 0
+                  });
+                }
+                
+                // Also check for thinking patterns in content
+                if (debug && contentChunk && (contentChunk.includes('<thinking>') || contentChunk.includes('<reasoning>') || contentChunk.includes('I need to think'))) {
+                  log('info', 'chat', 'thinking_pattern_detected', {
+                    traceId,
+                    contentPreview: contentChunk.slice(0, 100),
+                    hasThinkingTag: contentChunk.includes('<thinking>'),
+                    hasReasoningTag: contentChunk.includes('<reasoning>'),
+                    hasThinkPhrase: contentChunk.includes('I need to think')
+                  });
+                }
+                
                 if (contentChunk) {
                   full += contentChunk;
                   tokenCount++;

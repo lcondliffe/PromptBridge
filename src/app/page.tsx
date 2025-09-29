@@ -402,6 +402,18 @@ function HomeInner() {
       }))
     });
     
+    // Debug log for reasoning
+    console.log('🧠 Reasoning Debug:', {
+      reasoningEnabled,
+      reasoningEffort,
+      selectedModels,
+      modelsWithReasoning: selectedModels.map(id => ({
+        id,
+        supportsReasoning: modelsById[id] ? Boolean(modelsById[id].pricing?.internal_reasoning && modelsById[id].pricing?.internal_reasoning !== '0') : false,
+        reasoningParam: reasoningEnabled ? { enabled: true, effort: reasoningEffort } : undefined
+      }))
+    });
+    
     for (const model of selectedModels) {
       const handle = streamChatWithRetry(
         {
