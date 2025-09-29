@@ -6,8 +6,7 @@
  * Usage: node test-reasoning.js YOUR_API_KEY
  */
 
-const fs = require('fs');
-const https = require('https');
+import https from 'https';
 
 if (process.argv.length < 3) {
   console.error('Usage: node test-reasoning.js YOUR_API_KEY');
