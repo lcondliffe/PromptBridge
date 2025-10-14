@@ -189,7 +189,13 @@ export function streamChat(
           });
         }
         
-        log('info', 'chat', 'request', { traceId, model, body: sanitized, url: `${BASE_URL}/chat/completions`, hasAuth });
+        log('info', 'chat', 'request', { 
+          traceId, 
+          model, 
+          body: sanitized, 
+          url: `${BASE_URL}/chat/completions`, 
+          hasAuth 
+        });
       }
 
       const headersObj = defaultHeaders(apiKey) as HeadersInit;
@@ -238,8 +244,32 @@ export function streamChat(
         metrics.provider = responseProvider;
       }
       
-      // Default timeout: 15s for GPT-5, 30s for others
-      const timeoutMs = streamTimeoutMs ?? (model.includes('gpt-5') ? 15000 : 30000);
+      // Adaptive timeout: Longer for code generation, standard for chat
+      // Check if this looks like a code generation request
+      const isCodeRequest = messages.some(msg => 
+        msg.content && typeof msg.content === 'string' && (
+          msg.content.toLowerCase().includes('script') ||
+          msg.content.toLowerCase().includes('code') ||
+          msg.content.toLowerCase().includes('function') ||
+          msg.content.toLowerCase().includes('bash') ||
+          msg.content.toLowerCase().includes('python') ||
+          msg.content.toLowerCase().includes('javascript') ||
+          msg.content.toLowerCase().includes('create a') && (
+            msg.content.toLowerCase().includes('program') ||
+            msg.content.toLowerCase().includes('application') ||
+            msg.content.toLowerCase().includes('tool')
+          )
+        )
+      );
+      
+      let defaultTimeout;
+      if (model.includes('gpt-5')) {
+        defaultTimeout = isCodeRequest ? 45000 : 15000; // 45s for code, 15s for chat
+      } else {
+        defaultTimeout = isCodeRequest ? 60000 : 30000; // 60s for code, 30s for chat
+      }
+      
+      const timeoutMs = streamTimeoutMs ?? defaultTimeout;
       
       // Set up stream timeout detection
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
