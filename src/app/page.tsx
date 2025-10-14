@@ -60,8 +60,16 @@ function HomeInner() {
   );
   const [maxTokens, setMaxTokens] = useLocalStorage<number | undefined>(
     "max_tokens",
-    1024
+    4096  // Increased from 1024 to support longer code generation
   );
+  
+  // One-time migration: Update users who have the old 1024 limit
+  useEffect(() => {
+    if (maxTokens === 1024) {
+      console.log('🔄 Migrating maxTokens from 1024 to 4096 for better code generation');
+      setMaxTokens(4096);
+    }
+  }, [maxTokens, setMaxTokens]);
 
   // Advanced sampling UI state
   const [showAdvanced, setShowAdvanced] = useLocalStorage<boolean>("show_advanced", false);
@@ -472,11 +480,18 @@ function HomeInner() {
             } catch {}
             setPanes((p) => ({ ...p, [model]: { ...(p[model] || { draft: '' }), running: false, draft: '' } }));
           },
-          onError: (err) =>
+          onError: (err) => {
+            // Enhanced error handling for timeout issues
+            let errorMessage = err.message;
+            if (err.message.includes('Stream timeout')) {
+              errorMessage = 'Response took too long to generate. This can happen with complex requests like code generation. Try again or consider breaking down your request into smaller parts.';
+            }
+            
             setPanes((p) => ({
               ...p,
-              [model]: { ...(p[model] || { draft: '' }), running: false, draft: '', error: err.message },
-            })),
+              [model]: { ...(p[model] || { draft: '' }), running: false, draft: '', error: errorMessage },
+            }));
+          },
           onRetry: (attempt, error) => {
             console.log(`Retrying ${model} (attempt ${attempt}): ${error.message}`);
             // Could update UI to show retry status if desired
@@ -745,8 +760,15 @@ function HomeInner() {
             }
           } catch {}
         },
-        onError: (err) =>
-          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: err.message } })),
+        onError: (err) => {
+          // Enhanced error handling for timeout issues
+          let errorMessage = err.message;
+          if (err.message.includes('Stream timeout')) {
+            errorMessage = 'Response took too long to generate. This can happen with complex requests like code generation. Try again or consider breaking down your request into smaller parts.';
+          }
+          
+          setPanes((p) => ({ ...p, [id]: { ...(p[id] || { draft: '' }), running: false, draft: '', error: errorMessage } }));
+        },
       }
     );
     controllersRef.current[id] = handle.abortController;
@@ -1077,10 +1099,17 @@ function HomeInner() {
                       </div>
                     </Tip>
                   </div>
-                  <Tip text="Upper bound on tokens generated per model (provider caps may still apply).">
-                    <label className="flex items-center gap-2 text-xs">
-                      <span className="w-28 opacity-80">Max tokens</span>
-                      <input type="number" min={1} step={1} value={maxTokens ?? ''} onChange={(e)=> setMaxTokens(safeInt(e.target.value, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                  <Tip text="Upper bound on tokens generated per model (provider caps may still apply). Recommended: 4096+ for code generation.">
+                    <label className="flex flex-col gap-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-28 opacity-80">Max tokens</span>
+                        <input type="number" min={1} step={1} value={maxTokens ?? ''} onChange={(e)=> setMaxTokens(safeInt(e.target.value, 1))} className="flex-1 px-2 py-1 rounded-md border border-white/10 bg-black/20" />
+                      </div>
+                      {maxTokens && maxTokens < 2048 && (
+                        <span className="text-[10px] text-yellow-400 opacity-90">
+                          ⚠️ Low token limit may truncate long responses (code, scripts, etc.)
+                        </span>
+                      )}
                     </label>
                   </Tip>
 
