@@ -31,15 +31,16 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy the full workspace
 COPY . .
 
-# Accept version as build argument and write to version file
-ARG VERSION=0.0.0-unknown
+# Accept version and build metadata as build arguments
+ARG APP_VERSION=0.0.0-unknown
+ARG VCS_REF=unknown
+
 RUN set -eu; \
-    EFFECTIVE_VERSION="$VERSION"; \
     mkdir -p public; \
-    printf "%s" "$EFFECTIVE_VERSION" | tee public/version.txt
+    printf "%s" "$APP_VERSION" | tee public/version.txt
 
 # Store version for runtime use
-ENV NEXT_PUBLIC_APP_VERSION="$VERSION"
+ENV NEXT_PUBLIC_APP_VERSION="$APP_VERSION"
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -59,12 +60,19 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Accept version from builder stage
-ARG VERSION=0.0.0-unknown
+# Accept version and build metadata as build arguments
+ARG APP_VERSION=0.0.0-unknown
+ARG VCS_REF=unknown
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-ENV NEXT_PUBLIC_APP_VERSION="$VERSION"
+ENV NEXT_PUBLIC_APP_VERSION="$APP_VERSION"
+ENV PROMPTBRIDGE_VERSION="$APP_VERSION"
+
+# OCI image labels
+LABEL org.opencontainers.image.version="$APP_VERSION" \
+      org.opencontainers.image.revision="$VCS_REF"
 
 # Copy the standalone server and static files from the builder
 # .next/standalone contains server.js and a pruned node_modules

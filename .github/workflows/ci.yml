@@ -521,6 +521,9 @@ jobs:
           file: ./Dockerfile
           load: true
           tags: ${{ steps.vars.outputs.image }}:${{ needs.gitversion.outputs.majorMinorPatch }}
+          build-args: |
+            APP_VERSION=${{ needs.gitversion.outputs.majorMinorPatch }}
+            VCS_REF=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -556,6 +559,12 @@ jobs:
           tags: |
             type=raw,value=${{ needs.gitversion.outputs.majorMinorPatch }}
             type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=PromptBridge
+            org.opencontainers.image.version=${{ needs.gitversion.outputs.majorMinorPatch }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
 
       - name: "Build and push (multi-arch: amd64, arm64)"
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -566,5 +575,9 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ needs.gitversion.outputs.majorMinorPatch }}
+            VCS_REF=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
