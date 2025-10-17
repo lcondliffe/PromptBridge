@@ -146,6 +146,13 @@ function HomeInner() {
   const sessionStartIndexRef = useRef<Record<string, number>>({}); // per-model offset to hide previous messages
   const [sessionConvId, setSessionConvId] = useState<string | null>(null); // server-side conversation for this session
 
+  // Clear Chat modal state
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  
+  const closeClearModal = useCallback(() => {
+    setIsClearModalOpen(false);
+  }, []);
+
   // Rehydrate session conversation from last active conversation (survives reloads)
   useEffect(() => {
     if (!sessionConvId && activeConversationId) setSessionConvId(activeConversationId);
@@ -167,6 +174,24 @@ function HomeInner() {
       document.body.style.overflow = original;
     };
   }, [expandedId]);
+
+  // Manage body scroll lock and Escape to close Clear Chat modal
+  useEffect(() => {
+    if (!isClearModalOpen) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeClearModal();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = original;
+    };
+  }, [isClearModalOpen, closeClearModal]);
 
   const SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.";
 
@@ -514,9 +539,7 @@ function HomeInner() {
     );
   };
 
-  const resetAll = () => {
-    const ok = window.confirm("Reset all chats? This will stop any running responses and clear all conversations.");
-    if (!ok) return;
+  const handleConfirmClear = () => {
     stopAll();
     controllersRef.current = {} as Record<string, AbortController>;
     setConversations({});
@@ -524,8 +547,12 @@ function HomeInner() {
     sessionStartIndexRef.current = {} as Record<string, number>;
     setSessionConvId(null);
     setActiveConversationId(null);
+    setIsClearModalOpen(false);
   };
-
+  
+  const openClearModal = useCallback(() => {
+    setIsClearModalOpen(true);
+  }, []);
 
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1172,37 +1199,16 @@ function HomeInner() {
               )}
             {/* Actions toolbar */}
             <div className="mt-3 flex items-center">
-              <div role="toolbar" aria-label="Compose actions" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-                <button
-                  type="button"
-                  aria-label="Send"
-                  onClick={() => { const v = input.trim(); if (v) onSend(v); }}
-                  disabled={anyRunning || !input.trim()}
-                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
-                  title="Send"
-                >
-                  <Send className="size-5 opacity-90" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Stop all"
-                  onClick={stopAll}
-                  disabled={Object.values(panes).every((p) => !p.running)}
-                  className="p-2 rounded-md border border-transparent hover:bg-white/10 disabled:opacity-50"
-                  title="Stop all"
-                >
-                  <Square className="size-5 opacity-90" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Reset all"
-                  onClick={resetAll}
-                  className="p-2 rounded-md border border-transparent hover:bg-white/10"
-                  title="Reset all"
-                >
-                  <X className="size-5 opacity-90" />
-                </button>
-              </div>
+              <button
+                type="button"
+                aria-label="Clear chat"
+                onClick={openClearModal}
+                aria-haspopup="dialog"
+                aria-controls="clear-chat-modal"
+                className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 text-sm px-3 py-2 transition-colors"
+              >
+                Clear chat
+              </button>
             </div>
           </div>
           </div>
@@ -1408,6 +1414,52 @@ function HomeInner() {
                 >
                   <Send className="size-5 opacity-90" />
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Clear Chat Modal */}
+        {isClearModalOpen && (
+          <div
+            id="clear-chat-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-chat-title"
+            aria-describedby="clear-chat-desc"
+            className="fixed inset-0 z-50"
+          >
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={closeClearModal}
+              aria-hidden="true"
+            />
+            <div className="relative mx-auto mt-24 w-full max-w-md px-4 flex items-start justify-center">
+              <div
+                className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl p-6 focus:outline-none w-full"
+              >
+                <h2 id="clear-chat-title" className="text-lg font-semibold">
+                  Clear all chats?
+                </h2>
+                <p id="clear-chat-desc" className="mt-3 text-sm text-zinc-300">
+                  This will stop any running responses and clear all conversations.
+                </p>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={closeClearModal}
+                    className="rounded-md border border-white/15 bg-white/5 hover:bg-white/10 text-sm px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmClear}
+                    className="rounded-md bg-red-500/80 hover:bg-red-500/90 text-white text-sm px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             </div>
           </div>
