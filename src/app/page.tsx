@@ -43,6 +43,13 @@ function Tip({ text, children }: { text: string; children: ReactNode }) {
 const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
 const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
+// System default models (fallback when user hasn't configured their own)
+const SYSTEM_DEFAULT_MODELS = [
+  "openai/gpt-5-chat",
+  "anthropic/claude-sonnet-4",
+  "google/gemini-2.5-flash",
+];
+
 function HomeInner() {
 // API key handling (shared across app)
   const { apiKey } = useApiKey();
@@ -195,14 +202,9 @@ function HomeInner() {
 
   const SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely with reasoning when appropriate.";
 
-  const popularDefaults = useMemo(
-    () => [
-      "openai/gpt-5-chat",
-      "anthropic/claude-sonnet-4",
-      "google/gemini-2.5-flash",
-    ],
-    []
-  );
+  // User-configurable default models (from settings page)
+  const [userDefaults] = useLocalStorage<string[]>("default_models", []);
+  const popularDefaults = userDefaults?.length ? userDefaults : SYSTEM_DEFAULT_MODELS;
 
   // Cache & fetch models (once per apiKey), with localStorage TTL
   const lastModelsApiKeyRef = useRef<string | null>(null);
@@ -851,11 +853,11 @@ function HomeInner() {
                   className="rounded-md px-2.5 py-1.5 text-xs border border-white/15 bg-white/5 hover:bg-white/10"
                   onClick={() => {
                     const ids = new Set(models.map((m) => m.id));
-                    const picks = popularDefaults.filter((id) => ids.has(id)).slice(0, 4);
+                    const picks = popularDefaults.filter((id) => ids.has(id));
                     setSelectedModels(picks);
                   }}
                 >
-                  Select defaults
+                  Load my defaults
                 </button>
               </div>
             </div>
