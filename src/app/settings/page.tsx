@@ -32,21 +32,29 @@ export default function SettingsPage() {
       return;
     }
 
+    let mounted = true;
     setLoading(true);
     setError(null);
     
     fetchModels(apiKey)
       .then((list) => {
+        if (!mounted) return;
         setModels(list);
         setError(null);
       })
       .catch(() => {
+        if (!mounted) return;
         setError("Failed to load models");
         setModels([]);
       })
       .finally(() => {
+        if (!mounted) return;
         setLoading(false);
       });
+    
+    return () => {
+      mounted = false;
+    };
   }, [apiKey]);
 
   // Helper to display model name without vendor prefix
