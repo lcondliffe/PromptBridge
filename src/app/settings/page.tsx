@@ -7,13 +7,7 @@ import useLocalStorage from "@/lib/useLocalStorage";
 import { fetchModels } from "@/lib/openrouter";
 import type { ModelInfo } from "@/lib/types";
 import VendorLogo from "@/components/VendorLogo";
-
-// System default models (fallback when user hasn't configured their own)
-const SYSTEM_DEFAULT_MODELS = [
-  "openai/gpt-5-chat",
-  "anthropic/claude-sonnet-4",
-  "google/gemini-2.5-flash",
-];
+import { SYSTEM_DEFAULT_MODELS } from "@/lib/constants";
 
 export default function SettingsPage() {
   const { apiKey, setApiKey } = useApiKey();

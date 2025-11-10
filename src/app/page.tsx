@@ -6,6 +6,7 @@ import { Send, Square, Copy, Maximize2, X, LayoutGrid, Rows } from "lucide-react
 import { sdk } from "@promptbridge/sdk";
 import { fetchModels, streamChatWithRetry } from "@/lib/openrouter";
 import type { ChatMessage, ModelInfo, ResponseMetrics } from "@/lib/types";
+import { SYSTEM_DEFAULT_MODELS } from "@/lib/constants";
 import { CompactPerformanceMetrics } from "@/components/PerformanceMetrics";
 import { CompactBalanceDisplay } from "@/components/BalanceDisplay";
 import { usePostHog } from 'posthog-js/react';
@@ -42,13 +43,6 @@ function Tip({ text, children }: { text: string; children: ReactNode }) {
 // Cache keys and TTLs at module scope to avoid effect deps noise
 const MODELS_CACHE_KEY = "openrouter_models_cache_v1";
 const MODELS_TTL_MS = 15 * 60 * 1000; // 15 minutes
-
-// System default models (fallback when user hasn't configured their own)
-const SYSTEM_DEFAULT_MODELS = [
-  "openai/gpt-5-chat",
-  "anthropic/claude-sonnet-4",
-  "google/gemini-2.5-flash",
-];
 
 function HomeInner() {
 // API key handling (shared across app)
