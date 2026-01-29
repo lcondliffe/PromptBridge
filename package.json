@@ -31,7 +31,7 @@
     "@promptbridge/api": "workspace:*",
     "@promptbridge/sdk": "workspace:*",
     "lucide-react": "^0.541.0",
-    "next": "15.5.0",
+    "next": "16.1.5",
     "posthog-js": "^1.262.0",
     "posthog-node": "^5.8.4",
     "prismjs": "^1.30.0",
